@@ -6,7 +6,7 @@
 # Datum		:	12.10.2026
 # Version	:	1.0
 # Autor		:	Diveturtle93
-# Projekt	:	Diveturtle93
+# Projekt	:	Coding_Styleguide
 # Quelle	:
 #-----------------------------------------------------------------------
 
