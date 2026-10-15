@@ -5,7 +5,9 @@ Die Skripte pruefen Quelldateien gegen die Coding Styles von **Diveturtle93**:
 | Skript | Prueft | Regeln | Voraussetzung |
 |---|---|---|---|
 | [c_stylecheck.py](c_stylecheck.py) | `.c` / `.h` | [C Coding Style](../C_CODING_STYLE.md) | Python 3 |
-| [py_stylecheck.py](py_stylecheck.py) | `.py` | [Python Coding Style](../PYTHON_CODING_STYLE.md) | Python 3.10+, nutzt Hilfsfunktionen aus `c_stylecheck.py` |
+| [py_stylecheck.py](py_stylecheck.py) | `.py` | [Python Coding Style](../PYTHON_CODING_STYLE.md) | Python 3.10+ |
+
+Gemeinsam genutzter Code (Kommandozeile, Projektsuche, `.stylecheck`, Kopfblock- und Abschnittspruefungen, Reihenfolge, Reports und Uebersicht) liegt in [stylecheck_common.py](stylecheck_common.py). Es wird nicht selbst aufgerufen und muss im selben Ordner wie die Skripte liegen.
 
 Beide Skripte benoetigen keine weiteren Pakete und haben dieselben Optionen. Die Beispiele zeigen `c_stylecheck.py`, fuer Python wird nur der Skriptname getauscht.
 
@@ -31,6 +33,8 @@ py tools/c_stylecheck.py --no-default-exclude     # automatische Ausschluesse ab
 ```
 
 Jeder per Pfad oder Glob gefundene Ordner gilt als eigenes Projekt. Ordner ohne passende Dateien werden beim Standardaufruf stillschweigend uebersprungen.
+
+Der Abschnitt `Version definieren` wird je Projekt geprueft: Er muss genau einmal vorkommen (generierte CubeMX-Dateien zaehlen nicht). Fehlt er, steht im Report ein Befund fuer das ganze Projekt (`Projekt`), steht er mehrfach, wird jede Fundstelle gemeldet. In C muss er in einer `.h`-Datei stehen, in einer `.c`-Datei ist er ein Befund. Wird nur eine einzelne Datei angegeben, entfaellt diese Pruefung. Jedes Skript prueft nur die Dateien seiner Sprache; ein Repo mit C- und Python-Dateien wuerde deshalb je Sprache einen Abschnitt verlangen (kommt heute nicht vor).
 
 Rueckgabewert: `0` = keine Befunde, `1` = Befunde, `2` = keine Dateien gefunden.
 
@@ -61,7 +65,7 @@ Git-Submodule aus der `.gitmodules` des Projekts werden immer uebersprungen; sie
 **C**
 
 - HAL-, CMSIS- und Startup-Dateien werden uebersprungen.
-- Von STM32CubeMX generierte Dateien (z. B. unter `Core/`) werden nur zwischen `/* USER CODE BEGIN ... */` und `/* USER CODE END ... */` geprueft. Der Bereich `Header` (ST-Lizenzkopf) und die Pruefungen der Dateistruktur (Kopfblock, Abschnitte, Header, Debug-Symbole, Reihenfolge) entfallen, fehlerhafte Marker werden gemeldet. Im Report sind diese Dateien mit `nur USER CODE` gekennzeichnet.
+- Von STM32CubeMX generierte Dateien (z. B. unter `Core/`) werden nur zwischen `/* USER CODE BEGIN ... */` und `/* USER CODE END ... */` geprueft. Der Bereich `Header` (ST-Lizenzkopf) und die Pruefungen der Dateistruktur (Kopfblock, Abschnitte, Header, Debug-Symbole, Reihenfolge, Include-Abschnitte) entfallen, fehlerhafte Marker werden gemeldet. Im Report sind diese Dateien mit `nur USER CODE` gekennzeichnet.
 
 **Python**
 

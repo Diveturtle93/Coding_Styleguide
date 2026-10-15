@@ -4,7 +4,6 @@
 #-----------------------------------------------------------------------
 # Sprache	:	Python
 # Datum		:	12.10.2026
-# Version	:	1.0
 # Autor		:	Diveturtle93
 # Projekt	:	Coding_Styleguide
 # Quelle	:
@@ -45,11 +44,7 @@
 
 # Einfuegen der standard Module
 #-----------------------------------------------------------------------
-import argparse
 import ast
-import collections
-import datetime
-import glob
 import io
 import os
 import re
@@ -64,7 +59,7 @@ import tokenize
 
 # Einfuegen der eigenen Module
 #-----------------------------------------------------------------------
-from c_stylecheck import Issue, checkOrder, cleanReports, formatIssue, inDirs, normDir, projectSettings, tabcol, writeOverview
+from stylecheck_common import COMMENT_COL, VALUE_COL, VERSION_KEYS, Issue, Language, checkBlankLines, checkHead, checkOrder, checkRequiredSections, checkSectionForm, checkVarSections, debugSections, readLines, run, sectionName, short, tabcol
 #-----------------------------------------------------------------------
 
 # Definiere Debug-Symbole
@@ -72,21 +67,9 @@ from c_stylecheck import Issue, checkOrder, cleanReports, formatIssue, inDirs, n
 DEBUG_PY_STYLECHECK								= False
 #-----------------------------------------------------------------------
 
-# Version definieren
-#-----------------------------------------------------------------------
-PY_STYLECHECK_MAJOR								= 1
-PY_STYLECHECK_MINOR								= 0
-PY_STYLECHECK_PATCH								= 0
-PY_STYLECHECK_DEV								= 0
-#-----------------------------------------------------------------------
-
 # Konstanten definieren
 #-----------------------------------------------------------------------
 SEP												= "#" + "-" * 71			# Trennlinie, 72 Zeichen
-COMMENT_COL										= 77						# Spalte der Zeilenkommentare
-HEAD_COL										= 13						# Spalte des : im Kopfblock
-VALUE_COL										= 49						# Spalte des = bei Konstanten
-REPORT_SUBDIR									= "py"						# Reports nach <DIR>/py/
 
 # Virtuelle Umgebungen, Caches und Build-Ausgaben
 DEFAULT_EXCLUDE									= [
@@ -107,8 +90,6 @@ VAR_SECTION										= "# Variablen definieren"
 VAR_INC_SECTION									= "# Variablen einbinden"
 TABLE_SECTION									= "# Funktionstabellen definieren"
 MAIN_SECTION									= "# Hauptprogramm"
-HEAD_KEYS										= ["Titel", "Sprache", "Datum", "Version", "Autor", "Projekt", "Quelle"]
-VERSION_KEYS									= ["MAJOR", "MINOR", "PATCH", "DEV"]
 
 # Rang der Abschnitte fuer die Reihenfolgepruefung, gleiche Reihenfolge wie C (.h + .c)
 RANK_CLASS										= 8
@@ -137,36 +118,13 @@ STRING_TOKENS									= {tokenize.STRING} | {getattr(tokenize, n) for n in ("FST
 # Schluesselwoerter, nach denen vor "(" ein Leerzeichen steht
 SPACE_KEYWORDS									= {"if", "elif", "while", "for"}
 
-# Namen wie in C: Funktionen camelCase (Modul-Praefix erlaubt), Klassen PascalCase oder <Name>_TypeDef
-CAMEL											= re.compile(r"^_*[A-Za-z][a-zA-Z0-9]*$")
+# Klassen PascalCase oder <Name>_TypeDef, Funktionsnamen werden wie in C nicht geprueft
 PASCAL											= re.compile(r"^_*[A-Z][a-zA-Z0-9]*(_[A-Z][a-zA-Z0-9]*)*$")
-DUNDER											= re.compile(r"^__\w+__$")
 #-----------------------------------------------------------------------
 
 # Variablen definieren
 #-----------------------------------------------------------------------
 
-#-----------------------------------------------------------------------
-
-# Zeile fuer die Ausgabe kuerzen
-#-----------------------------------------------------------------------
-def short (l):
-	return l.strip()[:80]
-#-----------------------------------------------------------------------
-
-# Abschnittsform: Name, Trennlinie, Inhalt, Trennlinie, danach Leerzeile oder Dateiende
-#-----------------------------------------------------------------------
-def checkSectionForm (L, i, add):
-	name = L[i][2:]
-	if i + 1 >= len(L) or L[i + 1] != SEP:
-		add(i + 1, "Abschnitte", f"'{name}' ohne Trennlinie danach")
-		return
-
-	end = next((j for j in range(i + 2, len(L)) if L[j] == SEP), None)
-	if end is None:
-		add(i + 1, "Abschnitte", f"'{name}' ohne abschliessende Trennlinie")
-	elif end + 1 < len(L) and L[end + 1].strip():
-		add(end + 2, "Abschnitte", f"keine Leerzeile nach Abschnitt '{name}'")
 #-----------------------------------------------------------------------
 
 # Zeilenindex -> Abschnittsname ("# <Name>"), fuer jede Zeile zwischen den Trennlinien
@@ -350,7 +308,7 @@ def checkImport (L, node, owners, fileDir, base, add):
 		if owner == want:
 			continue
 		if owner in IMPORT_SECTIONS.values():
-			add(node.lineno, "Import im falschen Abschnitt", f"{short(L[node.lineno - 1])}  ->  '{want[2:]}'")
+			add(node.lineno, "Import im falschen Abschnitt", f"{short(L[node.lineno - 1])}  ->  '{sectionName(want)}'")
 		else:
 			add(node.lineno, "Import ausserhalb der Import-Abschnitte", short(L[node.lineno - 1]))
 #-----------------------------------------------------------------------
@@ -371,8 +329,6 @@ def checkTree (L, tree, fileDir, base, add):
 			m = re.match(r"^\s*(async\s+)?def\s+\w+(\s*)\(", L[node.lineno - 1])
 			if m and m.group(2) == "":
 				add(node.lineno, "kein Leerzeichen vor ( bei def", short(L[node.lineno - 1]))
-			if not DUNDER.match(node.name) and not CAMEL.match(node.name):
-				add(node.lineno, "Funktionsname nicht camelCase", node.name)
 		elif isinstance(node, ast.ClassDef):
 			m = re.match(r"^\s*class\s+\w+(\s*)\(", L[node.lineno - 1])
 			if m and m.group(1) == "":
@@ -403,7 +359,7 @@ def checkTree (L, tree, fileDir, base, add):
 		elif isMainBlock(node):
 			k = node.lineno - 1
 			if k < 2 or L[k - 2] != MAIN_SECTION or L[k - 1] != SEP:
-				add(node.lineno, "Abschnitte", f"'if __name__ ...' nicht im Abschnitt '{MAIN_SECTION[2:]}'")
+				add(node.lineno, "Abschnitte", f"'if __name__ ...' nicht im Abschnitt '{sectionName(MAIN_SECTION)}'")
 	return anchors
 #-----------------------------------------------------------------------
 
@@ -427,76 +383,22 @@ def orderAnchors (L, defs):
 		anchors.append((head, 0, "Kopfblock"))
 	for s, rank in SECTION_RANKS:
 		if s in L:
-			anchors.append((L.index(s), rank, s[2:]))
+			anchors.append((L.index(s), rank, sectionName(s)))
 	anchors.sort(key=lambda a: a[0])
 	return anchors
-#-----------------------------------------------------------------------
-
-# Kopfblock pruefen, Zeile 1 darf eine Shebang-Zeile sein
-#-----------------------------------------------------------------------
-def checkHead (L, fname, add):
-	off = 1 if L[0].startswith("#!") else 0
-	if off >= len(L) or L[off] != SEP:
-		add(off + 1, "Kopfblock", f"Zeile {off + 1} ist keine Trennlinie")
-
-	for k in HEAD_KEYS:
-		found = [(i, l) for i, l in enumerate(L[:off + 12]) if re.match(rf"#\s*{k}\b", l)]
-		if not found:
-			add(0, "Kopfblock", f"'{k}' fehlt")
-			continue
-
-		i, l = found[0]
-		hm = re.match(rf"# {k}(\t+):", l)
-		if not hm:
-			add(i + 1, "Kopfblock", f"'{k}' Format abweichend: {short(l)}")
-		elif tabcol(l, hm.end() - 1) != HEAD_COL:
-			add(i + 1, "Kopfblock", f"'{k}' Doppelpunkt nicht auf Spalte {HEAD_COL}: {short(l)}")
-		if k == "Titel" and not l.rstrip().endswith(fname):
-			add(i + 1, "Kopfblock", f"Titel != Dateiname: {short(l)}")
-		if k == "Sprache" and "Python" not in l:
-			add(i + 1, "Kopfblock", f"Sprache nicht Python: {short(l)}")
-		if k == "Datum" and not re.search(r"\d\d\.\d\d\.\d{4}", l):
-			add(i + 1, "Kopfblock", f"Datum nicht TT.MM.JJJJ: {short(l)}")
-		if k == "Autor" and "Diveturtle93" not in l:
-			add(i + 1, "Kopfblock", f"Autor: {short(l)}")
 #-----------------------------------------------------------------------
 
 # Pflichtabschnitte pruefen: Import-Abschnitte und Variablen definieren
 #-----------------------------------------------------------------------
 def checkSections (L, add):
-	for s in IMPORT_SECTIONS.values():
-		pos = [i for i, l in enumerate(L) if l == s]
-		if not pos:
-			similar = [i + 1 for i, l in enumerate(L) if l.startswith("# Einfuegen") and l not in IMPORT_SECTIONS.values()]
-			add(similar[0] if similar else 0, "Abschnitte", f"fehlt/abweichend: '{s[2:]}'")
-		for i in pos[1:]:
-			add(i + 1, "Abschnitte", f"doppelt: '{s[2:]}'")
-		for i in pos:
-			checkSectionForm(L, i, add)
-
-	# "Variablen definieren" ist Pflicht, "Variablen einbinden" optional
-	var = [(i, l) for i, l in enumerate(L) if re.match(r"#\s*Variable", l, re.I)]
-	defs = [i for i, l in var if l == VAR_SECTION]
-	incs = [i for i, l in var if l == VAR_INC_SECTION]
-	for i, l in var:
-		if l not in (VAR_SECTION, VAR_INC_SECTION) and re.match(r"#\s*Variable\w*\s+einbinden", l, re.I):
-			add(i + 1, "Abschnitte", f"Variablen-Abschnitt heisst '{l.strip()}' statt '{VAR_INC_SECTION[2:]}'")
-	if not defs:
-		other = [i for i, l in var if l != VAR_INC_SECTION]
-		if other:
-			add(other[0] + 1, "Abschnitte", f"Variablen-Abschnitt heisst '{L[other[0]].strip()}' statt '{VAR_SECTION[2:]}'")
-		else:
-			add(0, "Abschnitte", f"fehlt: '{VAR_SECTION[2:]}'")
-	for sec, pos in ((VAR_SECTION, defs), (VAR_INC_SECTION, incs)):
-		for i in pos[1:]:
-			add(i + 1, "Abschnitte", f"doppelt: '{sec[2:]}'")
-		for i in pos:
-			checkSectionForm(L, i, add)
+	checkRequiredSections(L, list(IMPORT_SECTIONS.values()), "# Einfuegen", SEP, add)
+	checkVarSections(L, VAR_SECTION, VAR_INC_SECTION, "#", SEP, add)
+	checkBlankLines(L, SEP, add)
 
 	# Optionale Abschnitte mit festem Namen
 	for s in (DESC_SECTION, VERSION_SECTION, CONST_SECTION, TABLE_SECTION, MAIN_SECTION):
 		if s in L:
-			checkSectionForm(L, L.index(s), add)
+			checkSectionForm(L, L.index(s), SEP, add)
 
 	# Datei endet mit einer Trennlinie (wie der Abschluss einer .h-Datei)
 	tail = [(i, l) for i, l in enumerate(L) if l.strip()]
@@ -517,32 +419,28 @@ def moduleName (path):
 #-----------------------------------------------------------------------
 def checkDebugSymbols (L, path, add):
 	name = moduleName(path)
-	for i, l in enumerate(L):
-		if DEBUG_NAME.match(l) and l != DEBUG_SECTION:
-			add(i + 1, "Abschnitte", f"Debug-Abschnitt heisst '{l.strip()}' statt '{DEBUG_SECTION[2:]}'")
-
-	pos = [i for i, l in enumerate(L) if l == DEBUG_SECTION or DEBUG_NAME.match(l)]
+	pos = debugSections(L, DEBUG_SECTION, DEBUG_NAME, add)
 	if not pos:
-		add(0, "Debug-Symbole", f"Abschnitt '{DEBUG_SECTION[2:]}' fehlt")
+		add(0, "Debug-Symbole", f"Abschnitt '{sectionName(DEBUG_SECTION)}' fehlt")
 		return
 
-	checkSectionForm(L, pos[0], add)
+	checkSectionForm(L, pos[0], SEP, add)
 	end = next((j for j in range(pos[0] + 2, len(L)) if L[j] == SEP), len(L))
 	sym = re.compile(rf"^(#\s*)?DEBUG_{name}\s*=")
 	if not any(sym.match(l) for l in L[pos[0] + 2:end]):
 		add(pos[0] + 1, "Debug-Symbole", f"'DEBUG_{name} = ...' fehlt")
 #-----------------------------------------------------------------------
 
-# Pflichtabschnitt "Version definieren" mit <NAME>_MAJOR/_MINOR/_PATCH/_DEV
+# Abschnitt "Version definieren" (einmal im Projekt) mit <NAME>_MAJOR/_MINOR/_PATCH/_DEV
 #-----------------------------------------------------------------------
 def checkVersion (L, path, add):
-	name = moduleName(path)
 	if VERSION_SECTION not in L:
-		add(0, "Version", f"Abschnitt '{VERSION_SECTION[2:]}' fehlt")
+		return
 
+	name = moduleName(path)
 	missing = [v for v in VERSION_KEYS if not any(re.match(rf"{name}_{v}\s*=", l) for l in L)]
 	if missing:
-		add(0, "Version", f"Versions-Konstanten fehlen: {', '.join(name + '_' + v for v in missing)}")
+		add(L.index(VERSION_SECTION) + 1, "Version", f"Versions-Konstanten fehlen: {', '.join(name + '_' + v for v in missing)}")
 #-----------------------------------------------------------------------
 
 # Eine Datei pruefen, Rueckgabe: Liste von Issue, sortiert nach Zeile
@@ -560,27 +458,8 @@ def checkFile (path, base):
 	if not raw.strip():
 		return issues
 
-	try:
-		text = raw.decode("ascii")
-		asciiOk = True
-	except UnicodeDecodeError:
-		text = raw.decode("utf-8", errors="replace")
-		asciiOk = False
-
-	rawLines = text.split("\n")
-	L = [l[:-1] if l.endswith("\r") else l for l in rawLines]
-	fname = os.path.basename(path)
-
-	# Zeilenende
-	lfLines = [i + 1 for i, l in enumerate(rawLines[:-1]) if not l.endswith("\r")]
-	if lfLines:
-		if len(lfLines) == len(rawLines) - 1:
-			add(0, "Zeilenende", "nur LF statt CRLF")
-		else:
-			for n in lfLines:
-				add(n, "Zeilenende", "LF statt CRLF")
-
-	checkHead(L, fname, add)
+	L, asciiOk = readLines(raw, add)
+	checkHead(L, os.path.basename(path), "#", SEP, "Python", add)
 	checkSections(L, add)
 	checkDebugSymbols(L, path, add)
 	checkVersion(L, path, add)
@@ -601,7 +480,7 @@ def checkFile (path, base):
 		n = i + 1
 		if not asciiOk and any(ord(c) > 127 for c in l):
 			add(n, "Nicht-ASCII", short(l))
-		if n not in inString and re.match(r"^\t* +\S", l):
+		if n not in inString and re.match(r"^\t* +[\t ]*\S", l):
 			add(n, "Einrueckung mit Leerzeichen", short(l))
 
 		# Konstante auf Modulebene: = auf Spalte 49, danach ein Leerzeichen
@@ -628,179 +507,15 @@ def checkFile (path, base):
 	return issues
 #-----------------------------------------------------------------------
 
-# Alle .py-Dateien einer Datei- oder Ordnerangabe
+# Projekt pruefen, Module/Pakete im Projektordner gelten als eigene Module
 #-----------------------------------------------------------------------
-def listPyFiles (path):
-	if os.path.isfile(path):
-		return [path] if path.endswith(".py") else []
-	return sorted(glob.glob(os.path.join(path, "**", "*.py"), recursive=True))
-#-----------------------------------------------------------------------
-
-# Pfade/Globs zu Projekten aufloesen: {Projektname: (Basisordner, [Datei])}
-# defaults: Git-Submodule ueberspringen, quiet: Ordner ohne .py-Dateien nicht melden
-#-----------------------------------------------------------------------
-def collectProjects (targets, excludes, defaults=True, quiet=False):
-	projects = collections.OrderedDict()
-	seen = set()
-	for t in targets:
-		matches = glob.glob(t) or ([t] if os.path.exists(t) else [])
-		if not matches:
-			print(f"Warnung: '{t}' nicht gefunden", file=sys.stderr)
-		for m in sorted(matches):
-			m = os.path.abspath(m)
-			base = m if os.path.isdir(m) else os.path.dirname(m)
-			proj = os.path.basename(base)
-
-			# Einstellungen nur fuer Projektordner, nicht fuer einzeln angegebene Dateien
-			exclDirs, inclDirs = projectSettings(base, defaults, "py") if os.path.isdir(m) else ([], [])
-			for p in listPyFiles(m):
-				p = os.path.abspath(p)
-				if p in seen or any(re.search(x, p, re.I) for x in excludes):
-					continue
-				rel = normDir(os.path.relpath(p, base))
-				if inDirs(rel, exclDirs) or (inclDirs and not inDirs(rel, inclDirs)):
-					continue
-				seen.add(p)
-				projects.setdefault(proj, (base, []))[1].append(p)
-			if os.path.isdir(m) and proj not in projects and not quiet:
-				print(f"Hinweis: {proj}: keine Dateien zu pruefen", file=sys.stderr)
-	return projects
-#-----------------------------------------------------------------------
-
-# Ueberschrift je Datei
-#-----------------------------------------------------------------------
-def fileTitle (p, base, iss):
-	return f"{os.path.relpath(p, base)}  ({len(iss)} Befunde)"
-#-----------------------------------------------------------------------
-
-# Report-Text fuer ein Projekt erzeugen
-#-----------------------------------------------------------------------
-def buildReport (proj, base, results):
-	total = collections.Counter()
-	count = sum(len(i) for _, i in results)
-	clean = sum(1 for _, i in results if not i)
-	for _, iss in results:
-		for x in iss:
-			total[x.cat] += 1
-
-	out = []
-	out.append("=" * 72)
-	out.append(f"Style-Report : {proj}")
-	out.append(f"Ordner       : {base}")
-	out.append(f"Erstellt     : {datetime.datetime.now():%d.%m.%Y %H:%M}")
-	out.append("Regeln       : PYTHON_CODING_STYLE.md")
-	out.append(f"Geprueft     : {len(results)} Dateien, davon {clean} ohne Befund")
-	out.append(f"Befunde      : {count}")
-	out.append("=" * 72)
-
-	if total:
-		out.append("")
-		out.append("Befunde je Kategorie")
-		out.append("-" * 72)
-		for c, n in total.most_common():
-			out.append(f"{n:6}  {c}")
-
-	for p, iss in results:
-		out.append("")
-		out.append("-" * 72)
-		out.append(fileTitle(p, base, iss))
-		out.append("-" * 72)
-		if not iss:
-			out.append("  keine Befunde")
-		for x in iss:
-			out.append(formatIssue(x))
-	out.append("")
-	return "\n".join(out)
-#-----------------------------------------------------------------------
-
-# Kommandozeile auswerten und Projekte pruefen
-#-----------------------------------------------------------------------
-def main ():
-	# Nicht-ASCII-Zeichen aus geprueften Dateien duerfen die Ausgabe nicht abbrechen
-	sys.stdout.reconfigure(errors="replace")
-
-	here = os.path.dirname(os.path.abspath(__file__))
-	repoDir = os.path.dirname(here)
-	ownDir = os.path.dirname(repoDir)
-	defaultTarget = os.path.join(ownDir, "*")
-	defaultReports = os.path.join(repoDir, "reports")
-
-	ap = argparse.ArgumentParser(description="Prueft Python-Dateien gegen PYTHON_CODING_STYLE.md")
-	ap.add_argument("paths", nargs="*", help=f"Ordner, Dateien oder Glob-Muster (Standard: {defaultTarget})")
-	ap.add_argument("-r", "--report", nargs="?", const=defaultReports, metavar="DIR",
-		help=f"je Projekt Report DIR/{REPORT_SUBDIR}/<JJJJMMTT>_<Projekt>.txt und eine Uebersicht schreiben (Standard: {defaultReports})")
-	ap.add_argument("-f", "--findings-only", action="store_true",
-		help="mit -r nur Reports fuer Projekte mit Befunden schreiben, die Uebersicht enthaelt alle Projekte")
-	ap.add_argument("-c", "--clean", nargs="?", const=defaultReports, metavar="DIR",
-		help=f"alle Python-Reports in DIR/{REPORT_SUBDIR}/ loeschen (Standard: {defaultReports}), mit -r danach neu schreiben")
-	ap.add_argument("-q", "--quiet", action="store_true", help="Dateien ohne Befund nicht anzeigen")
-	ap.add_argument("-s", "--summary", action="store_true", help="nur Zusammenfassung ausgeben")
-	ap.add_argument("-x", "--exclude", action="append", default=[], metavar="REGEX", help="zusaetzlich ausschliessen")
-	ap.add_argument("--no-default-exclude", action="store_true", help="virtuelle Umgebungen, Caches, Build-Ordner und Submodule mitpruefen")
-	args = ap.parse_args()
-
-	if args.clean:
-		print(f"{cleanReports(os.path.join(args.clean, REPORT_SUBDIR))} Reports geloescht")
-		if not args.report:
-			return 0
-
-	excludes = args.exclude + ([] if args.no_default_exclude else DEFAULT_EXCLUDE)
-	projects = collectProjects(args.paths or [defaultTarget], excludes, not args.no_default_exclude, not args.paths)
-	if not projects:
-		print("Keine .py-Dateien gefunden.")
-		return 2
-
-	reportDir = os.path.join(args.report, REPORT_SUBDIR) if args.report else None
-	if reportDir:
-		os.makedirs(reportDir, exist_ok=True)
-	datePrefix = datetime.date.today().strftime("%Y%m%d")
-
-	total = collections.Counter()
-	nFiles = 0
-	nClean = 0
-	rows = []
-	for proj, (base, files) in projects.items():
-		results = [(p, checkFile(p, base)) for p in files]
-		nFiles += len(results)
-		nClean += sum(1 for _, i in results if not i)
-		for _, iss in results:
-			for x in iss:
-				total[x.cat] += 1
-
-		if reportDir:
-			nIssues = sum(len(i) for _, i in results)
-			written = nIssues > 0 or not args.findings_only
-			rows.append((proj, len(results), sum(1 for _, i in results if not i), nIssues, written))
-			if not written:
-				print(f"{proj:30} {0:6} Befunde  -> kein Report")
-				continue
-			path = os.path.join(reportDir, f"{datePrefix}_{proj}.txt")
-			with open(path, "w", encoding="ascii", errors="replace", newline="\r\n") as f:
-				f.write(buildReport(proj, base, results))
-			print(f"{proj:30} {nIssues:6} Befunde  -> {os.path.relpath(path)}")
-			continue
-
-		if args.summary:
-			continue
-		for p, iss in results:
-			if args.quiet and not iss:
-				continue
-			print(f"\n### {proj}/{fileTitle(p, base, iss)}")
-			for x in iss:
-				print(formatIssue(x))
-
-	if reportDir:
-		writeOverview(reportDir, datePrefix, "Python", "PYTHON_CODING_STYLE.md", rows, total)
-
-	print("\n=== Befunde je Kategorie ===")
-	for c, n in total.most_common():
-		print(f"{n:6}  {c}")
-	print(f"\nGeprueft: {len(projects)} Projekte, {nFiles} Dateien, davon {nClean} ohne Befund")
-	return 1 if total else 0
+def checkProject (base, files):
+	return [(p, checkFile(p, base)) for p, _ in files]
 #-----------------------------------------------------------------------
 
 # Hauptprogramm
 #-----------------------------------------------------------------------
 if __name__ == "__main__":
-	sys.exit(main())
+	sys.exit(run(Language("Python", "py", "PYTHON_CODING_STYLE.md", (".py",), VERSION_SECTION, DEFAULT_EXCLUDE,
+		"virtuelle Umgebungen, Caches, Build-Ordner und Submodule mitpruefen", checkProject)))
 #-----------------------------------------------------------------------

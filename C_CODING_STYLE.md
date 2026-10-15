@@ -12,7 +12,7 @@ Verbindlicher Layout- und Formatierungsstandard fuer alle C-Dateien (`.c` / `.h`
 | Zeilenende | CRLF |
 | Zeichensatz | reines ASCII – Umlaute werden als `ae`, `oe`, `ue`, `ss` geschrieben |
 | Sprache Kommentare | Deutsch |
-| Kommentarstil | nur `//`, keine `/* */`-Bloecke (Ausnahme: `#endif /* INC_<NAME>_H_ */`) |
+| Kommentarstil | nur `//`, nach `//` immer ein Leerzeichen, keine `/* */`-Bloecke (Ausnahme: `#endif /* INC_<NAME>_H_ */`) |
 | Doxygen | **nicht** verwenden |
 | `extern "C"` | **nicht** verwenden |
 | Klammerstil | Allman (jede `{` und `}` in eigener Zeile) |
@@ -52,7 +52,6 @@ Jede Datei (`.c` und `.h`) beginnt mit diesem Kopfblock. Alle Doppelpunkte stehe
 //----------------------------------------------------------------------
 // Sprache	:	C
 // Datum	:	TT.MM.JJJJ
-// Version	:	1.0
 // Autor	:	Diveturtle93
 // Projekt	:	<Projektname>
 // Quelle	:	<optional: URL / Herkunft, sonst leer>
@@ -76,7 +75,7 @@ Reihenfolge der Abschnitte (Pflicht, fett = immer vorhanden):
 5. **Einfuegen der STM Include-Dateien** – `"main.h"`, `"can.h"`, …
 6. **Einfuegen der eigenen Include-Dateien**
 7. Definiere Debug-Symbole – `DEBUG_<NAME>` innerhalb von `#ifdef DEBUG` (gleicher Name fuer ein oder mehrere Symbole). **Pflicht, wenn eine gleichnamige `.c`-Datei existiert** (`canbus.h` + `canbus.c` → `DEBUG_CANBUS`); ein auskommentiertes Symbol zaehlt als vorhanden
-8. **Version definieren** – `<NAME>_MAJOR`, `_MINOR`, `_PATCH`, `_DEV`
+8. Version definieren – `<NAME>_MAJOR`, `_MINOR`, `_PATCH`, `_DEV`. Steht **genau einmal im Repository**, in einem Header (siehe unten)
 9. Konstanten definieren
 10. Typedefs (Abschnittsname beschreibend, z. B. `Typedefines definieren`, `Definiere Statemaschine Typedefines`)
 11. Definiere globale Variablen (`extern`)
@@ -86,6 +85,8 @@ Reihenfolge der Abschnitte (Pflicht, fett = immer vorhanden):
 Die Reihenfolge wird geprueft; optionale Abschnitte duerfen fehlen, die vorhandenen muessen aber in dieser Reihenfolge stehen. Typedef-Abschnitte werden an `Typedef` im Namen erkannt.
 
 `<NAME>` ist der Dateiname in Grossbuchstaben ohne Endung (`canbus.h` → `INC_CANBUS_H_`, `CANBUS_MAJOR`, `DEBUG_CANBUS`).
+
+Die Version gilt fuer das ganze Repository, nicht fuer eine Datei. Der Abschnitt `Version definieren` steht deshalb nur in einem Header, meist dem Hauptheader der Bibliothek (`canbus.h`, nicht `canbus_ringbuffer.h`). Fehlt er im Repository oder steht er mehrfach, ist das ein Befund. `_DEV` ist auf `develop` 1 und in `main` 0. Release-Ablauf und Tags stehen im [Documentation Style, Abschnitt 6](DOCUMENTATION_STYLE.md#6-versionierung).
 
 Innerhalb von `#ifdef` / `#endif` wird mit einem Tab eingerueckt. Nicht benoetigte Debug-Symbole werden auskommentiert (`//	#define ...`).
 
@@ -97,7 +98,6 @@ Innerhalb von `#ifdef` / `#endif` wird mit einem Tab eingerueckt. Nicht benoetig
 //----------------------------------------------------------------------
 // Sprache	:	C
 // Datum	:	08.10.2026
-// Version	:	1.0
 // Autor	:	Diveturtle93
 // Projekt	:	Beispiel
 // Quelle	:
@@ -138,10 +138,10 @@ Innerhalb von `#ifdef` / `#endif` wird mit einem Tab eingerueckt. Nicht benoetig
 
 // Version definieren
 //----------------------------------------------------------------------
-#define BEISPIEL_MAJOR							0
+#define BEISPIEL_MAJOR							1
 #define BEISPIEL_MINOR							0
 #define BEISPIEL_PATCH							0
-#define BEISPIEL_DEV							0
+#define BEISPIEL_DEV							1
 //----------------------------------------------------------------------
 
 // Konstanten definieren
@@ -207,6 +207,14 @@ Reihenfolge der Abschnitte:
 
 Die Reihenfolge wird geprueft (die erste Funktionsdefinition muss nach den Variablen-Abschnitten stehen).
 
+### Includes
+
+Jeder Include steht im passenden Abschnitt (gilt fuer `.h` und `.c`):
+
+- **standard** – `<...>` und die Header der C-Standardbibliothek (`stdint.h`, `string.h`, …), auch wenn sie mit `"..."` eingebunden werden
+- **STM** – HAL/CMSIS (`main.h`, `stm32*.h`), die von STM32CubeMX erzeugten Peripherie-Header (`can.h`, `spi.h`, `gpio.h`, …) und jeder Header im Projekt mit `USER CODE`-Markern
+- **eigene** – alle anderen `"..."`-Includes, auch Bibliotheken, die nicht im Projektordner liegen (`millis.h`)
+
 ### Funktionsabschnitt
 
 Jede Funktion bekommt einen beschreibenden Kommentar als Abschnittsname und wird von Trennlinien eingeschlossen:
@@ -243,7 +251,6 @@ uint32_t GetPage (uint32_t address)
 //----------------------------------------------------------------------
 // Sprache	:	C
 // Datum	:	08.10.2026
-// Version	:	1.0
 // Autor	:	Diveturtle93
 // Projekt	:	Beispiel
 // Quelle	:
@@ -417,6 +424,7 @@ switch (wert)
 ### Kommentare
 
 - **Blockkommentar** ueber einer Anweisungsgruppe: eigene Zeile, gleiche Einrueckung wie der Code.
+- Eine leere Kommentarzeile (`//` ohne Text) steht nur innerhalb eines mehrzeiligen Kommentarblocks.
 - **Zeilenkommentar** hinter Code (Defines, Enum-Werte, Struct-Member, Variablen, Prototypen): mit Tabs auf **Spalte 77** (Tabbreite 4) ausgerichtet. Ist der Code laenger, reicht ein Tab.
 - **Positionsangabe** in `union` und `enum`: Member duerfen vor der Beschreibung einen ersten Kommentar mit Tabs auf **Spalte 49** haben, die Beschreibung folgt auf Spalte 77.
   - `union`: Bitposition (`// 4`, `// 2 - 7`) bzw. Groesse des Gesamtwerts (`// 1 Byte`). Unbenannte Bits und der Gesamtwert haben nur die Positionsangabe.
@@ -452,13 +460,15 @@ switch (wert)
 |---|---|---|
 | Dateien | Kleinbuchstaben, `_` als Trenner | `canbus_ringbuffer.c` |
 | Include-Guard | `INC_<DATEI>_H_` | `INC_CANBUS_H_` |
-| Versions-Defines | `<DATEI>_MAJOR/_MINOR/_PATCH/_DEV` | `MILLIS_MAJOR` |
+| Versions-Defines | `<DATEI>_MAJOR/_MINOR/_PATCH/_DEV`, einmal im Repository | `MILLIS_MAJOR` |
 | Konstanten / Makros | `GROSSBUCHSTABEN` | `ERROR_RESET` |
-| Funktionen | camelCase, Modul-Praefix erlaubt | `setState`, `CANwrite` |
+| Funktionen | camelCase, Modul-Praefix erlaubt, Woerter duerfen mit `_` getrennt werden | `setState`, `CANwrite`, `ADC_Bremsdruck`, `ltc6811_write` |
 | Variablen | camelCase | `sizeRxBuffer`, `timeError` |
 | Globale Instanzen | `Main_<Name>` bzw. `<Modul>_<Name>` | `Main_Statemaschine` |
 | Struct-Typen | `<Name>_TypeDef` / `<Name>TypeDef` | `CAN_PaketTypeDef` |
 | Enum-Werte | PascalCase oder `GROSS_MIT_UNTERSTRICH` | `ReadyToDrive`, `RX_SIZE_8` |
+
+Geprueft werden nur die Namen von `#define` (`GROSSBUCHSTABEN`), die uebrigen Konventionen nicht.
 
 ---
 
@@ -470,12 +480,12 @@ Das Skript [tools/c_stylecheck.py](tools/c_stylecheck.py) prueft C-Dateien gegen
 
 ## 8. Checkliste
 
-- [ ] Dateikopf vollstaendig (Titel, Sprache, Datum, Version, Autor, Projekt, Quelle)
+- [ ] Dateikopf vollstaendig (Titel, Sprache, Datum, Autor, Projekt, Quelle), ohne Version
 - [ ] Alle Pflichtabschnitte vorhanden und in der richtigen Reihenfolge
 - [ ] Leere Include-Abschnitte trotzdem angelegt
 - [ ] `.c`: Abschnitt `Variablen definieren` vorhanden (auch wenn leer)
 - [ ] `.h`: `#pragma once` **und** Include-Guard `INC_<NAME>_H_`
-- [ ] `.h`: Versions-Defines vorhanden
+- [ ] Versions-Defines genau einmal im Repository, in einem Header
 - [ ] Jede Funktion mit Beschreibungskommentar und Trennlinien
 - [ ] Tabs statt Leerzeichen, Allman-Klammern
 - [ ] `case`-Bloecke mit `{ }`, `default` vorhanden

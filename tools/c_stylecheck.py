@@ -4,7 +4,6 @@
 #-----------------------------------------------------------------------
 # Sprache	:	Python
 # Datum		:	08.10.2026
-# Version	:	1.0
 # Autor		:	Diveturtle93
 # Projekt	:	Coding_Styleguide
 # Quelle	:
@@ -43,7 +42,7 @@
 #
 # Von STM32CubeMX generierte Dateien ("USER CODE BEGIN") werden nur zwischen
 # USER CODE BEGIN und USER CODE END geprueft, ohne den Bereich "Header" und ohne
-# Pruefungen der Dateistruktur (Kopfblock, Abschnitte, Header, Reihenfolge).
+# Pruefungen der Dateistruktur (Kopfblock, Abschnitte, Header, Debug-Symbole, Reihenfolge, Include-Abschnitte).
 #
 # Projekt-Einstellungen (optional): Datei .stylecheck im Projektordner (gemeinsam mit py_stylecheck.py)
 #   [stylecheck]                  -> gilt fuer C und Python
@@ -57,10 +56,6 @@
 
 # Einfuegen der standard Module
 #-----------------------------------------------------------------------
-import argparse
-import collections
-import configparser
-import datetime
 import glob
 import os
 import re
@@ -74,7 +69,7 @@ import sys
 
 # Einfuegen der eigenen Module
 #-----------------------------------------------------------------------
-
+from stylecheck_common import COMMENT_COL, VALUE_COL, VERSION_KEYS, Issue, Language, checkBlankLines, checkHead, checkOrder, checkRequiredSections, checkSectionForm, checkVarSections, debugSections, readLines, run, sectionName, short, tabcol
 #-----------------------------------------------------------------------
 
 # Definiere Debug-Symbole
@@ -82,26 +77,9 @@ import sys
 DEBUG_C_STYLECHECK								= False
 #-----------------------------------------------------------------------
 
-# Version definieren
-#-----------------------------------------------------------------------
-C_STYLECHECK_MAJOR								= 1
-C_STYLECHECK_MINOR								= 0
-C_STYLECHECK_PATCH								= 0
-C_STYLECHECK_DEV								= 0
-#-----------------------------------------------------------------------
-
 # Konstanten definieren
 #-----------------------------------------------------------------------
-CONFIG_FILE										= ".stylecheck"				# Projekt-Einstellungen (C und Python)
-CONFIG_SECTIONS									= ("stylecheck", "c", "py")	# [stylecheck] gilt fuer beide Sprachen
-LEGACY_CONFIG_FILES								= (".c_stylecheck", ".py_stylecheck")	# alte Dateinamen, nur noch Warnung
 SEP												= "//" + "-" * 70			# Trennlinie, 72 Zeichen
-COMMENT_COL										= 77						# Spalte der Zeilenkommentare
-HEAD_COL										= 13						# Spalte des : im Kopfblock
-VALUE_COL										= 49						# Spalte der Werte (#define) und Positionsangaben (union/enum)
-TAB_WIDTH										= 4							# Tabbreite
-REPORT_SUBDIR									= "c"						# Reports nach <DIR>/c/
-OVERVIEW_NAME									= "Uebersicht"				# <JJJJMMTT>_Uebersicht.txt
 
 # Generierte bzw. fremde Dateien (STM32CubeMX, HAL, CMSIS, Build-Ausgaben)
 DEFAULT_EXCLUDE									= [
@@ -122,9 +100,9 @@ INC_SECTIONS									= [
 GUARD_SECTION									= "// Sicherheitssymbol"
 DEBUG_SECTION									= "// Definiere Debug-Symbole"
 DEBUG_NAME										= re.compile(r"//\s*\w+\s+Debug[\s-]*Symbol", re.I)
+VERSION_SECTION									= "// Version definieren"	# genau einmal im Projekt
 VAR_SECTION										= "// Variablen definieren"
 VAR_INC_SECTION									= "// Variablen einbinden"
-HEAD_KEYS										= ["Titel", "Sprache", "Datum", "Version", "Autor", "Projekt", "Quelle"]
 KEYWORDS										= {"if", "for", "while", "switch", "return", "sizeof", "else"}
 
 # CubeMX-Dateien: nur Bereiche zwischen USER CODE BEGIN/END pruefen
@@ -132,37 +110,25 @@ USER_CODE										= re.compile(r"^\s*/\*\s*USER CODE (BEGIN|END)\s+(.+?)\s*\*/\
 USER_CODE_SKIP									= {"Header"}
 MARKER_CAT										= "USER CODE Marker"
 
-# Pruefungen der Dateistruktur, im USER-CODE-Modus nicht sinnvoll
-FILE_CATS										= {"Kopfblock", "Abschnitte", "Header", "Debug-Symbole", "Reihenfolge"}
+# Include-Abschnitt je Art des Includes
+INC_KIND										= {"standard": INC_SECTIONS[0], "stm": INC_SECTIONS[1], "eigene": INC_SECTIONS[2]}
+INCLUDE											= re.compile(r'^\s*#\s*include\s*([<"])([^>"]+)[>"]')
+STD_HEADER										= re.compile(r"^(assert|complex|ctype|errno|fenv|float|inttypes|iso646|limits|locale|math|setjmp|signal|stdalign|stdarg|stdatomic|stdbool|stddef|stdint|stdio|stdlib|stdnoreturn|string|tgmath|threads|time|uchar|wchar|wctype)\.h$")
+STM_HEADER										= re.compile(r"^(main|stm32\w*|core_cm\w*|cmsis\w*|adc|can|crc|dac|dcmi|dma|dma2d|eth|fatfs|fmc|fsmc|gpio|i2c|i2s|iwdg|lptim|ltdc|quadspi|rng|rtc|sai|sdio|sdmmc|spi|tim|uart|usart|usb_device|usb_host|usbd_\w+|wwdg)\.h$", re.I)
 
-# switch/case: Fall-through-Markierung, Blockende, case-Marke
-FALLTHROUGH										= re.compile(r"^\s*(//\s*fall(s)?[ -]?thr(ough|u)\b.*|__attribute__\s*\(\(\s*fallthrough\s*\)\)\s*;.*|\[\[fallthrough\]\]\s*;.*)$", re.I)
+# Pruefungen der Dateistruktur, im USER-CODE-Modus nicht sinnvoll
+FILE_CATS										= {"Kopfblock", "Abschnitte", "Header", "Debug-Symbole", "Reihenfolge", "Include im falschen Abschnitt", "Include ausserhalb der Include-Abschnitte"}
+
+# switch/case: Fall-through-Markierung (FALLTHROUGH_LIKE: abweichend geschrieben), Blockende, case-Marke
+FALLTHROUGH										= re.compile(r"^\s*// fall through - \S.*$")
+FALLTHROUGH_LIKE								= re.compile(r"^\s*(//\s*fall(s)?[ -]?thr(ough|u)\b.*|__attribute__\s*\(\(\s*fallthrough\s*\)\)\s*;.*|\[\[fallthrough\]\]\s*;.*)$", re.I)
 TERMINATOR										= re.compile(r"^\s*(break|continue|return\b.*|goto\s+\w+)\s*;$")
 LABEL											= re.compile(r"^\s*(case\b.*|default\s*):\s*$")
-#-----------------------------------------------------------------------
-
-# Ein Befund: Zeile (0 = ganze Datei), Kategorie, Zusatzinfo
-#-----------------------------------------------------------------------
-class Issue:
-	# Befund anlegen
-	def __init__ (self, line, cat, info=""):
-		self.line = line
-		self.cat = cat
-		self.info = info
 #-----------------------------------------------------------------------
 
 # Variablen definieren
 #-----------------------------------------------------------------------
 
-#-----------------------------------------------------------------------
-
-# Spalte (1-basiert) eines Zeichens bei Tabbreite 4
-#-----------------------------------------------------------------------
-def tabcol (line, idx):
-	col = 0
-	for ch in line[:idx]:
-		col = (col // TAB_WIDTH + 1) * TAB_WIDTH if ch == "\t" else col + 1
-	return col + 1
 #-----------------------------------------------------------------------
 
 # Naechste nicht leere Zeile nach Zeile i
@@ -189,12 +155,6 @@ def nextStatement (L, i):
 	return ""
 #-----------------------------------------------------------------------
 
-# Zeile fuer die Ausgabe kuerzen
-#-----------------------------------------------------------------------
-def short (l):
-	return l.strip()[:80]
-#-----------------------------------------------------------------------
-
 # Code ohne Strings, Zeichenkonstanten und //-Kommentar
 #-----------------------------------------------------------------------
 def stripCode (l):
@@ -203,29 +163,40 @@ def stripCode (l):
 	return re.sub(r"//.*", "", code).rstrip()
 #-----------------------------------------------------------------------
 
-# case-Block ohne break/return, dem eine weitere Marke folgt, braucht "// fall through"
+# Zeilenindex der schliessenden } zum Block, dessen { in Zeile start steht, None = nicht gefunden
 #-----------------------------------------------------------------------
-def checkFallthrough (L, i, add):
-	start = next(j for j in range(i + 1, len(L)) if L[j].strip())
+def blockEnd (L, start):
 	depth = 0
-	end = None
 	for j in range(start, len(L)):
 		c = stripCode(L[j])
 		depth += c.count("{") - c.count("}")
 		if depth == 0:
-			end = j
-			break
+			return j
+	return None
+#-----------------------------------------------------------------------
+
+# case-Block: break gehoert in den Block, ohne break/return vor der naechsten Marke braucht er "// fall through - <Begruendung>"
+#-----------------------------------------------------------------------
+def checkCaseBlock (L, i, add):
+	start = next(j for j in range(i + 1, len(L)) if L[j].strip())
+	end = blockEnd(L, start)
 	if end is None:
 		return
 
-	after = next((x for x in L[end + 1:] if stripCode(x).strip()), "")
-	if not LABEL.match(stripCode(after)):
+	after = stripCode(next((x for x in L[end + 1:] if stripCode(x).strip()), "")).strip()
+	if re.match(r"break\s*;$", after):
+		add(i + 1, "break ausserhalb des case-Blocks", short(L[i]))
+		return
+	if not LABEL.match(after):
 		return
 
 	body = [x for x in L[start + 1:end] if x.strip()]
 	if not body:
 		return
 	if FALLTHROUGH.match(body[-1]):
+		return
+	if FALLTHROUGH_LIKE.match(body[-1]):
+		add(end, "Fall-through-Markierung nicht '// fall through - <Begruendung>'", short(body[-1]))
 		return
 
 	lastCode = next((stripCode(x) for x in reversed(body) if stripCode(x).strip()), "")
@@ -234,31 +205,67 @@ def checkFallthrough (L, i, add):
 	add(i + 1, "case ohne break (Fall-through nicht markiert)", short(L[i]))
 #-----------------------------------------------------------------------
 
-# Abschnittsform: Name, Trennlinie, Inhalt, Trennlinie, danach Leerzeile oder Dateiende
+# Funktion endet mit Trennlinie (#endif und Leerzeilen davor erlaubt), danach Leerzeile oder Dateiende
+# i: Zeile des Funktionskopfs, die { steht in der naechsten nicht leeren Zeile
 #-----------------------------------------------------------------------
-def checkSectionForm (L, i, add):
-	name = L[i].strip()[3:]
-	if i + 1 >= len(L) or L[i + 1] != SEP:
-		add(i + 1, "Abschnitte", f"'{name}' ohne Trennlinie danach")
+def checkFuncEnd (L, i, name, add):
+	start = next(j for j in range(i + 1, len(L)) if L[j].strip())
+	end = blockEnd(L, start)
+	if end is None:
 		return
 
-	end = next((j for j in range(i + 2, len(L)) if L[j] == SEP), None)
-	if end is None:
-		add(i + 1, "Abschnitte", f"'{name}' ohne abschliessende Trennlinie")
-	elif end + 1 < len(L) and L[end + 1].strip():
-		add(end + 2, "Abschnitte", f"keine Leerzeile nach Abschnitt '{name}'")
+	k = next((j for j in range(end + 1, len(L)) if L[j].strip() and not re.match(r"\s*#\s*endif\b", L[j])), None)
+	if k is None or L[k] != SEP:
+		add(end + 1, "Funktion ohne Trennlinie danach", f"Funktion {name} ()")
+	elif k + 1 < len(L) and L[k + 1].strip():
+		add(k + 2, "Abschnitte", f"keine Leerzeile nach Funktion {name} ()")
+#-----------------------------------------------------------------------
+
+# Art eines Includes: <...> oder C-Standardbibliothek = standard, HAL/CMSIS/CubeMX = stm, sonst eigene
+# genHeaders: Basisnamen (klein) der von CubeMX erzeugten .h-Dateien im Projekt
+#-----------------------------------------------------------------------
+def includeKind (bracket, header, genHeaders):
+	base = os.path.basename(header)
+	if bracket == "<" or STD_HEADER.match(base):
+		return "standard"
+	if STM_HEADER.match(base) or base.lower() in genHeaders:
+		return "stm"
+	return "eigene"
+#-----------------------------------------------------------------------
+
+# Jeder Include steht im passenden Include-Abschnitt
+#-----------------------------------------------------------------------
+def checkIncludes (L, genHeaders, add):
+	owner = {}
+	for i in range(len(L) - 1):
+		if L[i].startswith("// ") and L[i + 1] == SEP:
+			end = next((j for j in range(i + 2, len(L)) if L[j] == SEP), len(L))
+			for j in range(i + 2, end):
+				owner.setdefault(j, L[i])
+
+	for i, l in enumerate(L):
+		m = INCLUDE.match(l)
+		if not m:
+			continue
+		want = INC_KIND[includeKind(m.group(1), m.group(2), genHeaders)]
+		have = owner.get(i)
+		if have == want:
+			continue
+		if have in INC_SECTIONS:
+			add(i + 1, "Include im falschen Abschnitt", f"{short(l)}  ->  '{sectionName(want)}'")
+		else:
+			add(i + 1, "Include ausserhalb der Include-Abschnitte", short(l))
 #-----------------------------------------------------------------------
 
 # Header mit passender .c-Datei braucht 'Definiere Debug-Symbole' mit DEBUG_<NAME> in #ifdef DEBUG
+# pos: Zeilenindizes der Debug-Abschnitte, falsch benannte zaehlen mit (Name wird unter "Abschnitte" gemeldet)
 #-----------------------------------------------------------------------
-def checkDebugSymbols (L, name, add):
-	# Falsch benannte Abschnitte zaehlen hier mit, der Name wird unter "Abschnitte" gemeldet
-	pos = [i for i, l in enumerate(L) if l == DEBUG_SECTION or DEBUG_NAME.match(l)]
+def checkDebugSymbols (L, pos, name, add):
 	if not pos:
-		add(0, "Debug-Symbole", f"Abschnitt '{DEBUG_SECTION[3:]}' fehlt (passende .c-Datei vorhanden)")
+		add(0, "Debug-Symbole", f"Abschnitt '{sectionName(DEBUG_SECTION)}' fehlt (passende .c-Datei vorhanden)")
 		return
 
-	checkSectionForm(L, pos[0], add)
+	checkSectionForm(L, pos[0], SEP, add)
 	sym = re.compile(rf"^(//)?\s*#define\s+DEBUG_{name}\b")
 	inIfdef = False
 	for l in L[pos[0] + 1:]:
@@ -269,37 +276,6 @@ def checkDebugSymbols (L, name, add):
 		elif inIfdef and sym.match(l):
 			return
 	add(pos[0] + 1, "Debug-Symbole", f"'#define DEBUG_{name}' innerhalb von '#ifdef DEBUG' fehlt")
-#-----------------------------------------------------------------------
-
-# Reihenfolge der Abschnitte: anchors = [(Zeilenindex, Rang, Name)] in Dateireihenfolge
-# Gemeldet werden nur Abschnitte ausserhalb der laengsten korrekt sortierten Folge
-#-----------------------------------------------------------------------
-def checkOrder (anchors, add):
-	n = len(anchors)
-	best = [1] * n
-	prev = [-1] * n
-	for i in range(n):
-		for j in range(i):
-			if anchors[j][1] <= anchors[i][1] and best[j] + 1 > best[i]:
-				best[i] = best[j] + 1
-				prev[i] = j
-
-	keep = set()
-	end = max(range(n), key=lambda i: (best[i], i)) if n else -1
-	while end >= 0:
-		keep.add(end)
-		end = prev[end]
-
-	for i, (line, rank, label) in enumerate(anchors):
-		if i in keep:
-			continue
-		later = next((a for j, a in enumerate(anchors[:i]) if j in keep and a[1] > rank), None)
-		if later:
-			add(line + 1, "Reihenfolge", f"'{label}' steht nach '{later[2]}'")
-			continue
-		earlier = next((a for j, a in enumerate(anchors) if j > i and j in keep and a[1] < rank), None)
-		if earlier:
-			add(line + 1, "Reihenfolge", f"'{label}' steht vor '{earlier[2]}'")
 #-----------------------------------------------------------------------
 
 # Positionen der bekannten Abschnitte fuer die Reihenfolgepruefung
@@ -315,14 +291,14 @@ def orderAnchors (L, isHeader, guard, firstFunc):
 
 	first(lambda l: re.match(r"//\s*Titel\b", l), 0, "Kopfblock")
 	if isHeader:
-		first(lambda l: l == "#pragma once", 1, GUARD_SECTION[3:])
+		first(lambda l: l == "#pragma once", 1, sectionName(GUARD_SECTION))
 		first(lambda l: l == f"#ifndef {guard}", 2, "Dateiheader definieren")
 	for k, s in enumerate(INC_SECTIONS):
-		first(lambda l, s=s: l == s, 3 + k, s[3:])
+		first(lambda l, s=s: l == s, 3 + k, sectionName(s))
 
 	if isHeader:
-		first(lambda l: l == DEBUG_SECTION or DEBUG_NAME.match(l), 6, DEBUG_SECTION[3:])
-		first(lambda l: l == "// Version definieren", 7, "Version definieren")
+		first(lambda l: l == DEBUG_SECTION or DEBUG_NAME.match(l), 6, sectionName(DEBUG_SECTION))
+		first(lambda l: l == VERSION_SECTION, 7, sectionName(VERSION_SECTION))
 		first(lambda l: l == "// Konstanten definieren", 8, "Konstanten definieren")
 
 		# Typedef-Abschnitte haben beschreibende Namen, es zaehlen alle
@@ -333,8 +309,8 @@ def orderAnchors (L, isHeader, guard, firstFunc):
 		first(lambda l: l == "// Funktionen definieren", 11, "Funktionen definieren")
 		first(lambda l: l == f"#endif /* {guard} */", 12, "Abschluss")
 	else:
-		first(lambda l: l == VAR_SECTION, 6, VAR_SECTION[3:])
-		first(lambda l: l == VAR_INC_SECTION, 7, VAR_INC_SECTION[3:])
+		first(lambda l: l == VAR_SECTION, 6, sectionName(VAR_SECTION))
+		first(lambda l: l == VAR_INC_SECTION, 7, sectionName(VAR_INC_SECTION))
 		if firstFunc:
 			anchors.append((firstFunc[0], 8, f"Funktion {firstFunc[1]} ()"))
 
@@ -380,9 +356,10 @@ def cBasenames (base):
 
 # Eine Datei pruefen, Rueckgabe: Liste von Issue, sortiert nach Zeile
 # cNames: Basisnamen der .c-Dateien im Projekt (zusaetzlich: Ordner der Datei und ../Src)
+# genHeaders: Basisnamen der von CubeMX erzeugten .h-Dateien im Projekt
 # userCode: nur Zeilen zwischen USER CODE BEGIN/END pruefen (CubeMX-Dateien)
 #-----------------------------------------------------------------------
-def checkFile (path, cNames=None, userCode=False):
+def checkFile (path, cNames=None, genHeaders=None, userCode=False):
 	raw = open(path, "rb").read()
 	issues = []
 
@@ -390,63 +367,18 @@ def checkFile (path, cNames=None, userCode=False):
 	def add (line, cat, info=""):
 		issues.append(Issue(line, cat, info))
 
-	try:
-		text = raw.decode("ascii")
-		asciiOk = True
-	except UnicodeDecodeError:
-		text = raw.decode("utf-8", errors="replace")
-		asciiOk = False
-
-	rawLines = text.split("\n")
-	L = [l[:-1] if l.endswith("\r") else l for l in rawLines]
+	L, asciiOk = readLines(raw, add)
 	fname = os.path.basename(path)
 	isHeader = fname.endswith(".h")
 	name = os.path.splitext(fname)[0].upper()
 
-	# Zeilenende
-	lfLines = [i + 1 for i, l in enumerate(rawLines[:-1]) if not l.endswith("\r")]
-	if lfLines:
-		if len(lfLines) == len(rawLines) - 1:
-			add(0, "Zeilenende", "nur LF statt CRLF")
-		else:
-			for n in lfLines:
-				add(n, "Zeilenende", "LF statt CRLF")
-
-	# Kopfblock
-	if L[0] != SEP:
-		add(1, "Kopfblock", "Zeile 1 ist keine Trennlinie")
-	for k in HEAD_KEYS:
-		found = [(i, l) for i, l in enumerate(L[:12]) if re.match(rf"//\s*{k}\b", l)]
-		if not found:
-			add(0, "Kopfblock", f"'{k}' fehlt")
-			continue
-
-		i, l = found[0]
-		hm = re.match(rf"// {k}(\t+):", l)
-		if not hm:
-			add(i + 1, "Kopfblock", f"'{k}' Format abweichend: {short(l)}")
-		elif tabcol(l, hm.end() - 1) != HEAD_COL:
-			add(i + 1, "Kopfblock", f"'{k}' Doppelpunkt nicht auf Spalte {HEAD_COL}: {short(l)}")
-		if k == "Titel" and not l.rstrip().endswith(fname):
-			add(i + 1, "Kopfblock", f"Titel != Dateiname: {short(l)}")
-		if k == "Datum" and not re.search(r"\d\d\.\d\d\.\d{4}", l):
-			add(i + 1, "Kopfblock", f"Datum nicht TT.MM.JJJJ: {short(l)}")
-		if k == "Autor" and "Diveturtle93" not in l:
-			add(i + 1, "Kopfblock", f"Autor: {short(l)}")
-
-	# Include-Abschnitte
-	for s in INC_SECTIONS:
-		pos = [i + 1 for i, l in enumerate(L) if l == s]
-		if not pos:
-			similar = [i + 1 for i, l in enumerate(L) if l.startswith("// Einfuegen") and l not in INC_SECTIONS]
-			add(similar[0] if similar else 0, "Abschnitte", f"fehlt/abweichend: '{s[3:]}'")
-		for n in pos[1:]:
-			add(n, "Abschnitte", f"doppelt: '{s[3:]}'")
+	checkHead(L, fname, "//", SEP, "C", add)
+	checkRequiredSections(L, INC_SECTIONS, "// Einfuegen", SEP, add)
+	checkIncludes(L, genHeaders or set(), add)
+	checkBlankLines(L, SEP, add)
 
 	# Debug-Symbole (ein Name, egal ob ein oder mehrere Symbole)
-	for i, l in enumerate(L):
-		if DEBUG_NAME.match(l) and l != DEBUG_SECTION:
-			add(i + 1, "Abschnitte", f"Debug-Abschnitt heisst '{l.strip()}' statt '{DEBUG_SECTION[3:]}'")
+	debugPos = debugSections(L, DEBUG_SECTION, DEBUG_NAME, add)
 
 	if isHeader:
 		guard = f"INC_{name}_H_"
@@ -454,7 +386,7 @@ def checkFile (path, cNames=None, userCode=False):
 			add(0, "Header", "#pragma once fehlt")
 		elif GUARD_SECTION not in L:
 			idx = L.index("#pragma once")
-			add(max(idx - 1, 1), "Header", f"Abschnittsname '{L[max(idx - 2, 0)].strip()}' statt '{GUARD_SECTION[3:]}'")
+			add(max(idx - 1, 1), "Header", f"Abschnittsname '{L[max(idx - 2, 0)].strip()}' statt '{sectionName(GUARD_SECTION)}'")
 		if f"#ifndef {guard}" not in L:
 			found = [(i, l) for i, l in enumerate(L) if l.startswith("#ifndef")][:1]
 			add(found[0][0] + 1 if found else 0, "Header", f"Include-Guard nicht {guard}")
@@ -465,12 +397,10 @@ def checkFile (path, cNames=None, userCode=False):
 		tail = [(i, l) for i, l in enumerate(L) if l.strip()]
 		if not tail or tail[-1][1] != SEP:
 			add(tail[-1][0] + 1 if tail else 0, "Header", "Datei endet nicht mit Trennlinie")
-		if "// Version definieren" not in L:
-			add(0, "Header", "Abschnitt 'Version definieren' fehlt")
-		missing = [v for v in ("MAJOR", "MINOR", "PATCH", "DEV")
-			if not any(re.match(rf"#define\s+{name}_{v}\b", l) for l in L)]
-		if missing:
-			add(0, "Header", f"Versions-Defines fehlen: {', '.join(name + '_' + v for v in missing)}")
+		if VERSION_SECTION in L:
+			missing = [v for v in VERSION_KEYS if not any(re.match(rf"#define\s+{name}_{v}\b", l) for l in L)]
+			if missing:
+				add(L.index(VERSION_SECTION) + 1, "Version", f"Versions-Defines fehlen: {', '.join(name + '_' + v for v in missing)}")
 		hasProto = any(re.match(r"^\w[\w\s\*]*\s\*?\w+\s*\(.*\)\s*;", l) for l in L)
 		if hasProto and "// Funktionen definieren" not in L:
 			add(0, "Header", "Abschnitt 'Funktionen definieren' fehlt")
@@ -478,26 +408,11 @@ def checkFile (path, cNames=None, userCode=False):
 		d = os.path.dirname(os.path.abspath(path))
 		local = cBasenames(d) | cBasenames(os.path.join(os.path.dirname(d), "Src"))
 		if name.lower() in (cNames or set()) | local:
-			checkDebugSymbols(L, name, add)
+			checkDebugSymbols(L, debugPos, name, add)
 	else:
-		# "Variablen definieren" ist Pflicht, "Variablen einbinden" optional (nur Schreibweise + Form)
-		var = [(i, l) for i, l in enumerate(L) if re.match(r"//\s*Variable", l, re.I)]
-		defs = [i for i, l in var if l == VAR_SECTION]
-		incs = [i for i, l in var if l == VAR_INC_SECTION]
-		for i, l in var:
-			if l not in (VAR_SECTION, VAR_INC_SECTION) and re.match(r"//\s*Variable\w*\s+einbinden", l, re.I):
-				add(i + 1, "Abschnitte", f"Variablen-Abschnitt heisst '{l.strip()}' statt '{VAR_INC_SECTION[3:]}'")
-		if not defs:
-			other = [i for i, l in var if l != VAR_INC_SECTION]
-			if other:
-				add(other[0] + 1, "Abschnitte", f"Variablen-Abschnitt heisst '{L[other[0]].strip()}' statt '{VAR_SECTION[3:]}'")
-			else:
-				add(0, "Abschnitte", f"fehlt: '{VAR_SECTION[3:]}'")
-		for sec, pos in ((VAR_SECTION, defs), (VAR_INC_SECTION, incs)):
-			for i in pos[1:]:
-				add(i + 1, "Abschnitte", f"doppelt: '{sec[3:]}'")
-			for i in pos:
-				checkSectionForm(L, i, add)
+		checkVarSections(L, VAR_SECTION, VAR_INC_SECTION, "//", SEP, add)
+		if VERSION_SECTION in L:
+			add(L.index(VERSION_SECTION) + 1, "Version", f"Abschnitt '{sectionName(VERSION_SECTION)}' gehoert in eine .h-Datei")
 
 	# Zeilenweise Pruefungen
 	inBlock = False
@@ -511,7 +426,7 @@ def checkFile (path, cNames=None, userCode=False):
 			add(n, "Nicht-ASCII", short(l))
 		if s.startswith("//-") and l != SEP:
 			add(n, "Trennlinie falsche Laenge", f"{len(l)} statt {len(SEP)} Zeichen")
-		if re.match(r"^ +\S", l) and not inBlock:
+		if re.match(r"^\t* +[\t ]*\S", l) and not inBlock:
 			add(n, "Einrueckung mit Leerzeichen", short(l))
 		if "/*" in l and not re.match(r"#endif /\* .* \*/", s):
 			add(n, "/* */-Kommentar", short(l))
@@ -544,15 +459,17 @@ def checkFile (path, cNames=None, userCode=False):
 			if nxt != "{" and not re.match(r"(case\b.*|default\s*):$", nxt) and not re.match(r"(return\b.*|break\s*);$", nxt):
 				add(n, "case ohne { }-Block", short(l))
 			elif nxt == "{":
-				checkFallthrough(L, i, add)
+				checkCaseBlock(L, i, add)
 		if re.match(r"\s*switch\s*\(", code):
+			# Nur default auf der obersten Ebene zaehlt, nicht das eines verschachtelten switch
 			depth = 0
 			found = False
 			for x in L[i + 1:]:
-				depth += x.count("{") - x.count("}")
-				if re.match(r"\s*default\s*:", x):
+				c = stripCode(x)
+				if depth == 1 and re.match(r"\s*default\s*:", c):
 					found = True
-				if depth <= 0 and "}" in x:
+				depth += c.count("{") - c.count("}")
+				if depth <= 0 and "}" in c:
 					break
 			if not found:
 				add(n, "switch ohne default", short(l))
@@ -585,6 +502,12 @@ def checkFile (path, cNames=None, userCode=False):
 				prev = L[max(0, k - 2):k]
 				if not (len(prev) == 2 and prev[1] == SEP and re.match(r"// \S", prev[0])):
 					add(n, "Funktion ohne Kommentar+Trennlinie davor", short(l))
+				checkFuncEnd(L, i, fm.group(1), add)
+
+		# Name eines #define in GROSSBUCHSTABEN
+		nm = re.match(r"\s*#\s*define\s+(\w+)", code)
+		if nm and not re.fullmatch(r"[A-Z0-9_]+", nm.group(1)):
+			add(n, "Define-Name nicht GROSSBUCHSTABEN", nm.group(1))
 
 		# Wert eines #define auf Spalte 49
 		dm = re.match(r"\s*#\s*define\s+\w+(\([^)]*\))?([ \t]+)(?=[^\s/])", code)
@@ -646,292 +569,24 @@ def isGenerated (path):
 		return b"USER CODE BEGIN" in f.read()
 #-----------------------------------------------------------------------
 
-# Alle .c/.h-Dateien einer Datei- oder Ordnerangabe
+# Basisnamen (klein) der von CubeMX erzeugten .h-Dateien unterhalb eines Ordners, inkl. ausgeschlossener
 #-----------------------------------------------------------------------
-def listCFiles (path):
-	if os.path.isfile(path):
-		return [path] if path.endswith((".c", ".h")) else []
-	return sorted(glob.glob(os.path.join(path, "**", "*.[ch]"), recursive=True))
-#-----------------------------------------------------------------------
-
-# Ordnerangabe vereinheitlichen: Schraegstriche, klein, ohne fuehrendes/abschliessendes /
-#-----------------------------------------------------------------------
-def normDir (d):
-	return d.strip().replace("\\", "/").strip("/").lower()
+def generatedHeaders (base):
+	files = glob.glob(os.path.join(base, "**", "*.h"), recursive=True)
+	return {os.path.basename(p).lower() for p in files if isGenerated(p)}
 #-----------------------------------------------------------------------
 
-# Projekt-Einstellungen: ([auszuschliessende Ordner], [zu pruefende Ordner]), relativ zum Projekt
-# submodules: Pfade aus .gitmodules ausschliessen
-# lang: Sprachabschnitt der Einstellungsdatei ("c" oder "py"), ergaenzt [stylecheck]
+# Projekt pruefen, die Basisnamen der .c-Dateien und erzeugten .h-Dateien werden einmal je Projekt bestimmt
 #-----------------------------------------------------------------------
-def projectSettings (base, submodules=True, lang="c"):
-	excl = []
-	incl = []
-	gitmodules = os.path.join(base, ".gitmodules")
-	if submodules and os.path.isfile(gitmodules):
-		with open(gitmodules, encoding="utf-8", errors="replace") as f:
-			excl += [m.group(1) for m in re.finditer(r"^\s*path\s*=\s*(.+?)\s*$", f.read(), re.M)]
-
-	for old in LEGACY_CONFIG_FILES:
-		if os.path.isfile(os.path.join(base, old)):
-			print(f"Warnung: {os.path.join(base, old)} wird nicht mehr gelesen, Einstellungen nach {CONFIG_FILE} verschieben", file=sys.stderr)
-
-	cfgPath = os.path.join(base, CONFIG_FILE)
-	if os.path.isfile(cfgPath):
-		cfg = configparser.ConfigParser(inline_comment_prefixes=("#", ";"))
-		cfg.read(cfgPath, encoding="utf-8-sig")								# BOM von Windows-Editoren erlauben
-		for name in cfg.sections():
-			if name not in CONFIG_SECTIONS:
-				print(f"Warnung: {cfgPath}: unbekannter Abschnitt '[{name}]'", file=sys.stderr)
-		for name in ("stylecheck", lang):
-			if not cfg.has_section(name):
-				continue
-			sec = cfg[name]
-			for k in sec:
-				if k not in ("exclude", "include"):
-					print(f"Warnung: {cfgPath}: unbekannter Eintrag '{k}' in [{name}]", file=sys.stderr)
-			excl += sec.get("exclude", "").split(",")
-			incl += sec.get("include", "").split(",")
-	return [normDir(d) for d in excl if d.strip()], [normDir(d) for d in incl if d.strip()]
-#-----------------------------------------------------------------------
-
-# Liegt die Datei (relativ zum Projekt) in einem der Ordner?
-#-----------------------------------------------------------------------
-def inDirs (rel, dirs):
-	return any(rel == d or rel.startswith(d + "/") for d in dirs)
-#-----------------------------------------------------------------------
-
-# Pfade/Globs zu Projekten aufloesen: {Projektname: (Basisordner, [(Datei, nur USER CODE)])}
-# defaults: Git-Submodule ueberspringen, CubeMX-Dateien nur in den USER CODE Bereichen pruefen
-# quiet: Ordner ohne .c/.h-Dateien nicht melden
-#-----------------------------------------------------------------------
-def collectProjects (targets, excludes, defaults=True, quiet=False):
-	projects = collections.OrderedDict()
-	seen = set()
-	for t in targets:
-		matches = glob.glob(t) or ([t] if os.path.exists(t) else [])
-		if not matches:
-			print(f"Warnung: '{t}' nicht gefunden", file=sys.stderr)
-		for m in sorted(matches):
-			m = os.path.abspath(m)
-			base = m if os.path.isdir(m) else os.path.dirname(m)
-			proj = os.path.basename(base)
-
-			# Einstellungen nur fuer Projektordner, nicht fuer einzeln angegebene Dateien
-			exclDirs, inclDirs = projectSettings(base, defaults) if os.path.isdir(m) else ([], [])
-			for p in listCFiles(m):
-				p = os.path.abspath(p)
-				if p in seen or any(re.search(x, p, re.I) for x in excludes):
-					continue
-				rel = normDir(os.path.relpath(p, base))
-				if inDirs(rel, exclDirs) or (inclDirs and not inDirs(rel, inclDirs)):
-					continue
-				seen.add(p)
-				projects.setdefault(proj, (base, []))[1].append((p, defaults and isGenerated(p)))
-			if os.path.isdir(m) and proj not in projects and not quiet:
-				print(f"Hinweis: {proj}: keine Dateien zu pruefen", file=sys.stderr)
-	return projects
-#-----------------------------------------------------------------------
-
-# Alle Reports <JJJJMMTT>_*.txt im Ordner loeschen (auch die Uebersicht), Rueckgabe: Anzahl
-#-----------------------------------------------------------------------
-def cleanReports (reportDir):
-	if not os.path.isdir(reportDir):
-		print(f"Hinweis: Report-Ordner '{reportDir}' nicht vorhanden", file=sys.stderr)
-		return 0
-
-	pattern = re.compile(r"^\d{8}_.+\.txt$", re.I)
-	count = 0
-	for f in sorted(os.listdir(reportDir)):
-		path = os.path.join(reportDir, f)
-		if pattern.match(f) and os.path.isfile(path):
-			os.remove(path)
-			print(f"geloescht: {os.path.relpath(path)}")
-			count += 1
-	return count
-#-----------------------------------------------------------------------
-
-# Einen Befund als Ausgabezeile formatieren
-#-----------------------------------------------------------------------
-def formatIssue (issue):
-	where = f"Z.{issue.line:5}" if issue.line else "Datei  "
-	info = f"  ->  {issue.info}" if issue.info else ""
-	return f"  {where}  [{issue.cat}]{info}"
-#-----------------------------------------------------------------------
-
-# Ueberschrift je Datei, userCode: Dateien, die nur in den USER CODE Bereichen geprueft wurden
-#-----------------------------------------------------------------------
-def fileTitle (p, base, iss, userCode):
-	mode = ", nur USER CODE" if p in userCode else ""
-	return f"{os.path.relpath(p, base)}  ({len(iss)} Befunde{mode})"
-#-----------------------------------------------------------------------
-
-# Report-Text fuer ein Projekt erzeugen
-#-----------------------------------------------------------------------
-def buildReport (proj, base, results, userCode=()):
-	total = collections.Counter()
-	count = sum(len(i) for _, i in results)
-	clean = sum(1 for _, i in results if not i)
-	for _, iss in results:
-		for x in iss:
-			total[x.cat] += 1
-
-	out = []
-	out.append("=" * 72)
-	out.append(f"Style-Report : {proj}")
-	out.append(f"Ordner       : {base}")
-	out.append(f"Erstellt     : {datetime.datetime.now():%d.%m.%Y %H:%M}")
-	out.append("Regeln       : C_CODING_STYLE.md")
-	out.append(f"Geprueft     : {len(results)} Dateien, davon {clean} ohne Befund, {len(userCode)} nur USER CODE")
-	out.append(f"Befunde      : {count}")
-	out.append("=" * 72)
-
-	if total:
-		out.append("")
-		out.append("Befunde je Kategorie")
-		out.append("-" * 72)
-		for c, n in total.most_common():
-			out.append(f"{n:6}  {c}")
-
-	for p, iss in results:
-		out.append("")
-		out.append("-" * 72)
-		out.append(fileTitle(p, base, iss, userCode))
-		out.append("-" * 72)
-		if not iss:
-			out.append("  keine Befunde")
-		for x in iss:
-			out.append(formatIssue(x))
-	out.append("")
-	return "\n".join(out)
-#-----------------------------------------------------------------------
-
-# Uebersicht ueber alle Projekte erzeugen
-# rows: [(Projekt, Dateien, Dateien ohne Befund, Befunde, Report geschrieben)]
-#-----------------------------------------------------------------------
-def buildOverview (lang, rules, rows, total):
-	out = []
-	out.append("=" * 72)
-	out.append(f"Uebersicht   : {lang}")
-	out.append(f"Erstellt     : {datetime.datetime.now():%d.%m.%Y %H:%M}")
-	out.append(f"Regeln       : {rules}")
-	out.append(f"Projekte     : {len(rows)}, davon {sum(1 for r in rows if not r[3])} ohne Befund")
-	out.append(f"Dateien      : {sum(r[1] for r in rows)}, davon {sum(r[2] for r in rows)} ohne Befund")
-	out.append(f"Befunde      : {sum(r[3] for r in rows)}")
-	out.append("=" * 72)
-
-	out.append("")
-	out.append(f"{'Projekt':34} {'Dateien':>8} {'ohne Bef.':>10} {'Befunde':>8}  Report")
-	out.append("-" * 72)
-	for proj, nFiles, nClean, nIssues, written in rows:
-		out.append(f"{proj:34} {nFiles:8} {nClean:10} {nIssues:8}  {'ja' if written else '-'}")
-
-	if total:
-		out.append("")
-		out.append("Befunde je Kategorie")
-		out.append("-" * 72)
-		for c, n in total.most_common():
-			out.append(f"{n:6}  {c}")
-	out.append("")
-	return "\n".join(out)
-#-----------------------------------------------------------------------
-
-# Uebersicht <JJJJMMTT>_Uebersicht.txt in den Report-Ordner schreiben
-#-----------------------------------------------------------------------
-def writeOverview (reportDir, datePrefix, lang, rules, rows, total):
-	path = os.path.join(reportDir, f"{datePrefix}_{OVERVIEW_NAME}.txt")
-	with open(path, "w", encoding="ascii", errors="replace", newline="\r\n") as f:
-		f.write(buildOverview(lang, rules, rows, total))
-	print(f"{'Uebersicht':30} {len(rows):6} Projekte -> {os.path.relpath(path)}")
-#-----------------------------------------------------------------------
-
-# Kommandozeile auswerten und Projekte pruefen
-#-----------------------------------------------------------------------
-def main ():
-	here = os.path.dirname(os.path.abspath(__file__))
-	repoDir = os.path.dirname(here)
-	ownDir = os.path.dirname(repoDir)
-	defaultTarget = os.path.join(ownDir, "*")
-	defaultReports = os.path.join(repoDir, "reports")
-
-	ap = argparse.ArgumentParser(description="Prueft C-Dateien gegen C_CODING_STYLE.md")
-	ap.add_argument("paths", nargs="*", help=f"Ordner, Dateien oder Glob-Muster (Standard: {defaultTarget})")
-	ap.add_argument("-r", "--report", nargs="?", const=defaultReports, metavar="DIR",
-		help=f"je Projekt Report DIR/{REPORT_SUBDIR}/<JJJJMMTT>_<Projekt>.txt und eine Uebersicht schreiben (Standard: {defaultReports})")
-	ap.add_argument("-f", "--findings-only", action="store_true",
-		help="mit -r nur Reports fuer Projekte mit Befunden schreiben, die Uebersicht enthaelt alle Projekte")
-	ap.add_argument("-c", "--clean", nargs="?", const=defaultReports, metavar="DIR",
-		help=f"alle C-Reports in DIR/{REPORT_SUBDIR}/ loeschen (Standard: {defaultReports}), mit -r danach neu schreiben")
-	ap.add_argument("-q", "--quiet", action="store_true", help="Dateien ohne Befund nicht anzeigen")
-	ap.add_argument("-s", "--summary", action="store_true", help="nur Zusammenfassung ausgeben")
-	ap.add_argument("-x", "--exclude", action="append", default=[], metavar="REGEX", help="zusaetzlich ausschliessen")
-	ap.add_argument("--no-default-exclude", action="store_true", help="HAL/CMSIS-Dateien und Submodule mitpruefen, CubeMX-Dateien vollstaendig pruefen")
-	args = ap.parse_args()
-
-	if args.clean:
-		print(f"{cleanReports(os.path.join(args.clean, REPORT_SUBDIR))} Reports geloescht")
-		if not args.report:
-			return 0
-
-	excludes = args.exclude + ([] if args.no_default_exclude else DEFAULT_EXCLUDE)
-	projects = collectProjects(args.paths or [defaultTarget], excludes, not args.no_default_exclude, not args.paths)
-	if not projects:
-		print("Keine .c/.h-Dateien gefunden.")
-		return 2
-
-	reportDir = os.path.join(args.report, REPORT_SUBDIR) if args.report else None
-	if reportDir:
-		os.makedirs(reportDir, exist_ok=True)
-	datePrefix = datetime.date.today().strftime("%Y%m%d")
-
-	total = collections.Counter()
-	nFiles = 0
-	nClean = 0
-	rows = []
-	for proj, (base, files) in projects.items():
-		cNames = cBasenames(base)
-		results = [(p, checkFile(p, cNames, uc)) for p, uc in files]
-		userCode = {p for p, uc in files if uc}
-		nFiles += len(results)
-		nClean += sum(1 for _, i in results if not i)
-		for _, iss in results:
-			for x in iss:
-				total[x.cat] += 1
-
-		if reportDir:
-			nIssues = sum(len(i) for _, i in results)
-			written = nIssues > 0 or not args.findings_only
-			rows.append((proj, len(results), sum(1 for _, i in results if not i), nIssues, written))
-			if not written:
-				print(f"{proj:30} {0:6} Befunde  -> kein Report")
-				continue
-			path = os.path.join(reportDir, f"{datePrefix}_{proj}.txt")
-			with open(path, "w", encoding="ascii", errors="replace", newline="\r\n") as f:
-				f.write(buildReport(proj, base, results, userCode))
-			print(f"{proj:30} {nIssues:6} Befunde  -> {os.path.relpath(path)}")
-			continue
-
-		if args.summary:
-			continue
-		for p, iss in results:
-			if args.quiet and not iss:
-				continue
-			print(f"\n### {proj}/{fileTitle(p, base, iss, userCode)}")
-			for x in iss:
-				print(formatIssue(x))
-
-	if reportDir:
-		writeOverview(reportDir, datePrefix, "C", "C_CODING_STYLE.md", rows, total)
-
-	print("\n=== Befunde je Kategorie ===")
-	for c, n in total.most_common():
-		print(f"{n:6}  {c}")
-	print(f"\nGeprueft: {len(projects)} Projekte, {nFiles} Dateien, davon {nClean} ohne Befund")
-	return 1 if total else 0
+def checkProject (base, files):
+	cNames = cBasenames(base)
+	genHeaders = generatedHeaders(base)
+	return [(p, checkFile(p, cNames, genHeaders, uc)) for p, uc in files]
 #-----------------------------------------------------------------------
 
 # Hauptprogramm
 #-----------------------------------------------------------------------
 if __name__ == "__main__":
-	sys.exit(main())
+	sys.exit(run(Language("C", "c", "C_CODING_STYLE.md", (".c", ".h"), VERSION_SECTION, DEFAULT_EXCLUDE,
+		"HAL/CMSIS-Dateien und Submodule mitpruefen, CubeMX-Dateien vollstaendig pruefen", checkProject, isGenerated)))
 #-----------------------------------------------------------------------
