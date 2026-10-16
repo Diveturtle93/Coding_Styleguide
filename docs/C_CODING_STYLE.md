@@ -12,7 +12,7 @@ Verbindlicher Layout- und Formatierungsstandard fuer alle C-Dateien (`.c` / `.h`
 | Zeilenende | CRLF |
 | Zeichensatz | reines ASCII – Umlaute werden als `ae`, `oe`, `ue`, `ss` geschrieben |
 | Sprache Kommentare | Deutsch |
-| Kommentarstil | nur `//`, keine `/* */`-Bloecke (Ausnahme: `#endif /* INC_<NAME>_H_ */`) |
+| Kommentarstil | nur `//`, nach `//` immer ein Leerzeichen, keine `/* */`-Bloecke (Ausnahme: `#endif /* INC_<NAME>_H_ */`) |
 | Doxygen | **nicht** verwenden |
 | `extern "C"` | **nicht** verwenden |
 | Klammerstil | Allman (jede `{` und `}` in eigener Zeile) |
@@ -37,8 +37,26 @@ Jeder Abschnitt einer Datei hat immer dieselbe Form:
 ```
 
 - Zwischen zwei Abschnitten steht genau **eine Leerzeile**.
-- Die Include-Abschnitte (und in `.c`-Dateien `Variablen definieren`) werden **immer** angelegt, auch wenn sie leer sind (dann steht eine Leerzeile zwischen den Linien).
-- Mehrere Typdefinitionen innerhalb eines Abschnitts werden nur durch eine Trennlinie getrennt (ohne Leerzeile).
+- Die Include-Abschnitte werden **immer** angelegt, auch wenn sie leer sind (dann steht eine Leerzeile zwischen den Linien). Alle anderen Abschnitte stehen nur dort, wo sie Inhalt haben.
+- Ein Abschnitt endet erst an einer Trennlinie, auf die eine Leerzeile folgt. Die Leerzeile trennt Abschnitte, die Trennlinie allein trennt Bloecke innerhalb eines Abschnitts.
+- Mehrere Typdefinitionen innerhalb eines Abschnitts werden nur durch eine Trennlinie getrennt (ohne Leerzeile), die naechste Zeile beginnt mit `typedef` oder mit einem Kommentar zur Typdefinition.
+- **Unterabschnitte**: Ein Abschnitt darf in benannte Bloecke geteilt werden. Der Unterabschnitt folgt direkt auf die schliessende Trennlinie, ohne Leerzeile, und hat dieselbe Form wie ein Abschnitt. Er gehoert zum Abschnitt davor, z. B. zaehlen Variablen darin als in `Variablen definieren` stehend. Eine Beschreibung zum Unterabschnitt steht als Kommentar im Block, nicht zwischen zwei weiteren Trennlinien.
+- Abschnitte mit festem Namen (z. B. `Variablen einbinden`, `Konstanten definieren`) und Funktionen sind nie Unterabschnitte, vor ihnen steht immer eine Leerzeile.
+- Die Form wird fuer alle Abschnitte mit festem Namen und fuer die Typedef-Abschnitte geprueft.
+
+```c
+// Variablen definieren
+//----------------------------------------------------------------------
+static uint8_t zaehler = 0;													// Interner Zaehler
+//----------------------------------------------------------------------
+// Definiere Zellenarray Spannungen
+//----------------------------------------------------------------------
+// Werte je Modul
+uint16_t cellvoltage[LTC6811_DEVICES][LTC6811_CELLS] = {0};					// Gemessene Zellspannungen
+//----------------------------------------------------------------------
+
+// Initialisiere Beispiel
+```
 
 ---
 
@@ -52,7 +70,6 @@ Jede Datei (`.c` und `.h`) beginnt mit diesem Kopfblock. Alle Doppelpunkte stehe
 //----------------------------------------------------------------------
 // Sprache	:	C
 // Datum	:	TT.MM.JJJJ
-// Version	:	1.0
 // Autor	:	Diveturtle93
 // Projekt	:	<Projektname>
 // Quelle	:	<optional: URL / Herkunft, sonst leer>
@@ -76,16 +93,18 @@ Reihenfolge der Abschnitte (Pflicht, fett = immer vorhanden):
 5. **Einfuegen der STM Include-Dateien** – `"main.h"`, `"can.h"`, …
 6. **Einfuegen der eigenen Include-Dateien**
 7. Definiere Debug-Symbole – `DEBUG_<NAME>` innerhalb von `#ifdef DEBUG` (gleicher Name fuer ein oder mehrere Symbole). **Pflicht, wenn eine gleichnamige `.c`-Datei existiert** (`canbus.h` + `canbus.c` → `DEBUG_CANBUS`); ein auskommentiertes Symbol zaehlt als vorhanden
-8. **Version definieren** – `<NAME>_MAJOR`, `_MINOR`, `_PATCH`, `_DEV`
-9. Konstanten definieren
-10. Typedefs (Abschnittsname beschreibend, z. B. `Typedefines definieren`, `Definiere Statemaschine Typedefines`)
+8. Version definieren – `<NAME>_MAJOR`, `_MINOR`, `_PATCH`, `_DEV`. Steht **genau einmal im Repository**, in einem Header (siehe unten). Einziger `#define`-Abschnitt vor den Typedefs
+9. Typedefs (Abschnittsname beschreibend, z. B. `Typedefines definieren`, `Definiere Statemaschine Typedefines`)
+10. Konstanten definieren – weitere `#define`-Abschnitte mit eigener Ueberschrift stehen hier
 11. Definiere globale Variablen (`extern`)
-12. **Funktionen definieren** – Prototypen
+12. Funktionen definieren – Prototypen
 13. **Abschluss** – `#endif /* INC_<NAME>_H_ */` + Trennlinie
 
-Die Reihenfolge wird geprueft; optionale Abschnitte duerfen fehlen, die vorhandenen muessen aber in dieser Reihenfolge stehen. Typedef-Abschnitte werden an `Typedef` im Namen erkannt.
+Die Abschnitte 7 bis 12 sind optional. Die Reihenfolge wird geprueft; fehlende Abschnitte sind erlaubt, die vorhandenen muessen aber in dieser Reihenfolge stehen. Typedef-Abschnitte werden an `Typedef` im Namen erkannt. Stehen Prototypen im Header, gehoeren sie in `Funktionen definieren`.
 
 `<NAME>` ist der Dateiname in Grossbuchstaben ohne Endung (`canbus.h` → `INC_CANBUS_H_`, `CANBUS_MAJOR`, `DEBUG_CANBUS`).
+
+Die Version gilt fuer das ganze Repository, nicht fuer eine Datei. Der Abschnitt `Version definieren` steht deshalb nur in einem Header, meist dem Hauptheader der Bibliothek (`canbus.h`, nicht `canbus_ringbuffer.h`). Fehlt er im Repository oder steht er mehrfach, ist das ein Befund. `_DEV` ist auf `develop` 1 und in `main` 0. Release-Ablauf und Tags stehen im [Documentation Style, Abschnitt 6](DOCUMENTATION_STYLE.md#6-versionierung).
 
 Innerhalb von `#ifdef` / `#endif` wird mit einem Tab eingerueckt. Nicht benoetigte Debug-Symbole werden auskommentiert (`//	#define ...`).
 
@@ -97,7 +116,6 @@ Innerhalb von `#ifdef` / `#endif` wird mit einem Tab eingerueckt. Nicht benoetig
 //----------------------------------------------------------------------
 // Sprache	:	C
 // Datum	:	08.10.2026
-// Version	:	1.0
 // Autor	:	Diveturtle93
 // Projekt	:	Beispiel
 // Quelle	:
@@ -138,15 +156,10 @@ Innerhalb von `#ifdef` / `#endif` wird mit einem Tab eingerueckt. Nicht benoetig
 
 // Version definieren
 //----------------------------------------------------------------------
-#define BEISPIEL_MAJOR							0
+#define BEISPIEL_MAJOR							1
 #define BEISPIEL_MINOR							0
 #define BEISPIEL_PATCH							0
-#define BEISPIEL_DEV							0
-//----------------------------------------------------------------------
-
-// Konstanten definieren
-//----------------------------------------------------------------------
-#define TIMEOUT									1000						// Timeout in ms
+#define BEISPIEL_DEV							1
 //----------------------------------------------------------------------
 
 // Definiere Beispiel Typedefines
@@ -176,6 +189,11 @@ typedef union
 } beispielStatus;
 //----------------------------------------------------------------------
 
+// Konstanten definieren
+//----------------------------------------------------------------------
+#define TIMEOUT									1000						// Timeout in ms
+//----------------------------------------------------------------------
+
 // Definiere globale Variablen
 //----------------------------------------------------------------------
 extern Beispiel_TypeDef Main_Beispiel;										// Globale Beispiel-Variable
@@ -201,11 +219,35 @@ Reihenfolge der Abschnitte:
 2. **Einfuegen der standard Include-Dateien**
 3. **Einfuegen der STM Include-Dateien**
 4. **Einfuegen der eigenen Include-Dateien** – der eigene Header steht hier
-5. **Variablen definieren** – globale und `static` Variablen (immer vorhanden, auch wenn leer)
-6. Variablen einbinden – optional, z. B. fuer Variablen, die im Header global (`extern`) bekannt gemacht werden; wird nur auf Schreibweise und Abschnittsform geprueft
+5. Variablen definieren – optional, Variablen nur fuer diese Datei (`static`)
+6. Variablen einbinden – optional, globale (externe) Variablen: die im Header mit `extern` bekannt gemachten Variablen bzw. `extern`-Verweise auf Variablen anderer Dateien
 7. Funktionen – jede Funktion als eigener Abschnitt
 
 Die Reihenfolge wird geprueft (die erste Funktionsdefinition muss nach den Variablen-Abschnitten stehen).
+
+### Variablen und Typedefs
+
+- In einer `.c`-Datei werden **keine Typedefs** definiert, sie gehoeren in den Header.
+- Variablen auf Dateiebene stehen **nur** in `Variablen definieren` oder `Variablen einbinden`, nicht in eigenen Abschnitten. Zur Gliederung (z. B. `Definiere Zellenarray Spannungen`) dienen [Unterabschnitte](#abschnitte).
+- Empfohlen (nicht Pflicht, wird nicht geprueft): Jede Variable bekommt einen Zeilenkommentar, wofuer sie da ist (Spalte 77, siehe [Kommentare](#kommentare)). Bei mehrzeiligen Initialisierungen steht der Kommentar in der ersten Zeile.
+
+```c
+static uint8_t zaehler = 0;													// Interner Zaehler
+const uint8_t tabelle[] =													// Umrechnungstabelle
+{
+	1, 2, 3,
+};
+```
+
+In von STM32CubeMX erzeugten Dateien werden Typedefs und Variablen-Abschnitte nicht geprueft.
+
+### Includes
+
+Jeder Include steht im passenden Abschnitt (gilt fuer `.h` und `.c`):
+
+- **standard** – `<...>` und die Header der C-Standardbibliothek (`stdint.h`, `string.h`, …), auch wenn sie mit `"..."` eingebunden werden
+- **STM** – HAL/CMSIS (`main.h`, `stm32*.h`), die von STM32CubeMX erzeugten Peripherie-Header (`can.h`, `spi.h`, `gpio.h`, …) und jeder Header im Projekt mit `USER CODE`-Markern
+- **eigene** – alle anderen `"..."`-Includes, auch Bibliotheken, die nicht im Projektordner liegen (`millis.h`)
 
 ### Funktionsabschnitt
 
@@ -243,7 +285,6 @@ uint32_t GetPage (uint32_t address)
 //----------------------------------------------------------------------
 // Sprache	:	C
 // Datum	:	08.10.2026
-// Version	:	1.0
 // Autor	:	Diveturtle93
 // Projekt	:	Beispiel
 // Quelle	:
@@ -266,8 +307,12 @@ uint32_t GetPage (uint32_t address)
 
 // Variablen definieren
 //----------------------------------------------------------------------
-Beispiel_TypeDef Main_Beispiel;												// Globale Beispiel-Variable
 static uint8_t zaehler = 0;													// Interner Zaehler
+//----------------------------------------------------------------------
+
+// Variablen einbinden
+//----------------------------------------------------------------------
+Beispiel_TypeDef Main_Beispiel;												// Globale Beispiel-Variable
 //----------------------------------------------------------------------
 
 // Initialisiere Beispiel
@@ -313,7 +358,7 @@ uint8_t getBeispiel (uint8_t index)
 ### Klammern und Kontrollstrukturen
 
 - Allman-Stil fuer Funktionen, `if`, `else`, `for`, `while`, `switch`, `struct`, `enum`, `union`.
-- Nach Schluesselwoertern ein Leerzeichen: `if (`, `switch (`, `while (`.
+- Nach Schluesselwoertern ein Leerzeichen: `if (`, `for (`, `switch (`, `while (`, `return (`. `sizeof(...)` wird wie ein Funktionsaufruf ohne Leerzeichen geschrieben.
 - `if` / `else` **immer** mit geschweiften Klammern.
 - Ausnahme: Folgt auf ein `if`, `else if` oder `else` direkt ein einzelnes `return ...;`, sind keine Klammern noetig:
   ```c
@@ -378,7 +423,7 @@ else
 - Jeder Block endet mit `break;`, `return`, `continue` oder `goto`. Ausnahme: der letzte Block im `switch`.
 - Gewolltes Durchfallen (Fall-through) ist erlaubt, muss aber als **letzte Zeile im Block** mit diesem Kommentar markiert werden:
   `// fall through - <Begruendung>`
-  Die Schreibweise `fall through` erkennt auch GCC (`-Wimplicit-fallthrough`); hinter dem Bindestrich steht die deutsche Begruendung. Ein `break;` nur innerhalb eines `if` zaehlt nicht – auch dann ist die Markierung noetig.
+  Die Schreibweise `fall through` erkennt auch GCC (`-Wimplicit-fallthrough`); hinter dem Bindestrich steht die deutsche Begruendung. Eine laengere Begruendung darf in den folgenden `//`-Zeilen weitergehen, die Markierung ist dann die erste Zeile dieses Kommentarblocks am Ende des Blocks. Ein `break;` nur innerhalb eines `if` zaehlt nicht – auch dann ist die Markierung noetig.
 - Mehrere `case`-Marken direkt untereinander brauchen **keine** Markierung.
 
 ```c
@@ -417,6 +462,7 @@ switch (wert)
 ### Kommentare
 
 - **Blockkommentar** ueber einer Anweisungsgruppe: eigene Zeile, gleiche Einrueckung wie der Code.
+- Eine leere Kommentarzeile (`//` ohne Text) steht nur innerhalb eines mehrzeiligen Kommentarblocks.
 - **Zeilenkommentar** hinter Code (Defines, Enum-Werte, Struct-Member, Variablen, Prototypen): mit Tabs auf **Spalte 77** (Tabbreite 4) ausgerichtet. Ist der Code laenger, reicht ein Tab.
 - **Positionsangabe** in `union` und `enum`: Member duerfen vor der Beschreibung einen ersten Kommentar mit Tabs auf **Spalte 49** haben, die Beschreibung folgt auf Spalte 77.
   - `union`: Bitposition (`// 4`, `// 2 - 7`) bzw. Groesse des Gesamtwerts (`// 1 Byte`). Unbenannte Bits und der Gesamtwert haben nur die Positionsangabe.
@@ -438,6 +484,7 @@ switch (wert)
 
 - Der Wert steht mit Tabs auf **Spalte 49** (Tabbreite 4). Ist der Name laenger, reicht ein Tab.
 - Name in `GROSSBUCHSTABEN` mit `_`.
+- Ausnahme: Pin-Defines aus CubeMX behalten ihre Endung `_Pin` bzw. `_Port` (`LED_Pin`, `LED_GPIO_Port`).
 
 ```c
 #define TIMEOUT									1000						// Timeout in ms
@@ -452,30 +499,34 @@ switch (wert)
 |---|---|---|
 | Dateien | Kleinbuchstaben, `_` als Trenner | `canbus_ringbuffer.c` |
 | Include-Guard | `INC_<DATEI>_H_` | `INC_CANBUS_H_` |
-| Versions-Defines | `<DATEI>_MAJOR/_MINOR/_PATCH/_DEV` | `MILLIS_MAJOR` |
+| Versions-Defines | `<DATEI>_MAJOR/_MINOR/_PATCH/_DEV`, einmal im Repository | `MILLIS_MAJOR` |
 | Konstanten / Makros | `GROSSBUCHSTABEN` | `ERROR_RESET` |
-| Funktionen | camelCase, Modul-Praefix erlaubt | `setState`, `CANwrite` |
+| Pin-Defines (CubeMX) | `<NAME>_Pin`, `<NAME>_GPIO_Port` | `LED_Pin`, `LED_GPIO_Port` |
+| Funktionen | camelCase, Modul-Praefix erlaubt, Woerter duerfen mit `_` getrennt werden | `setState`, `CANwrite`, `ADC_Bremsdruck`, `ltc6811_write` |
 | Variablen | camelCase | `sizeRxBuffer`, `timeError` |
 | Globale Instanzen | `Main_<Name>` bzw. `<Modul>_<Name>` | `Main_Statemaschine` |
 | Struct-Typen | `<Name>_TypeDef` / `<Name>TypeDef` | `CAN_PaketTypeDef` |
 | Enum-Werte | PascalCase oder `GROSS_MIT_UNTERSTRICH` | `ReadyToDrive`, `RX_SIZE_8` |
 
+Geprueft werden nur die Namen von `#define` (`GROSSBUCHSTABEN`), die uebrigen Konventionen nicht.
+
 ---
 
 ## 7. Automatische Pruefung
 
-Das Skript [tools/c_stylecheck.py](tools/c_stylecheck.py) prueft C-Dateien gegen diesen Standard. Aufruf, Reports, Ausschluesse und Projekteinstellungen sind in [tools/README.md](tools/README.md) beschrieben.
+Das Skript [tools/c_stylecheck.py](../tools/c_stylecheck.py) prueft C-Dateien gegen diesen Standard. Aufruf, Reports, Ausschluesse und Projekteinstellungen sind in [tools/README.md](../tools/README.md) beschrieben.
 
 ---
 
 ## 8. Checkliste
 
-- [ ] Dateikopf vollstaendig (Titel, Sprache, Datum, Version, Autor, Projekt, Quelle)
+- [ ] Dateikopf vollstaendig (Titel, Sprache, Datum, Autor, Projekt, Quelle), ohne Version
 - [ ] Alle Pflichtabschnitte vorhanden und in der richtigen Reihenfolge
 - [ ] Leere Include-Abschnitte trotzdem angelegt
-- [ ] `.c`: Abschnitt `Variablen definieren` vorhanden (auch wenn leer)
+- [ ] `.c`: keine Typedefs, Variablen nur in `Variablen definieren` / `Variablen einbinden`, moeglichst mit Kommentar
+- [ ] `.h`: Typedefs nach `Version definieren`, vor allen anderen Defines
 - [ ] `.h`: `#pragma once` **und** Include-Guard `INC_<NAME>_H_`
-- [ ] `.h`: Versions-Defines vorhanden
+- [ ] Versions-Defines genau einmal im Repository, in einem Header
 - [ ] Jede Funktion mit Beschreibungskommentar und Trennlinien
 - [ ] Tabs statt Leerzeichen, Allman-Klammern
 - [ ] `case`-Bloecke mit `{ }`, `default` vorhanden

@@ -42,7 +42,7 @@ Jeder Abschnitt einer Datei hat immer dieselbe Form:
 
 - Zwischen zwei Abschnitten steht genau **eine Leerzeile**.
 - Die Import-Abschnitte und `Variablen definieren` werden **immer** angelegt, auch wenn sie leer sind (dann steht eine Leerzeile zwischen den Linien).
-- Mehrere Klassen innerhalb eines Abschnitts (z. B. zusammengehoerige Enums) werden nur durch eine Trennlinie getrennt (ohne Leerzeile).
+- Mehrere Klassen innerhalb eines Abschnitts (z. B. zusammengehoerige Enums) werden nur durch eine Trennlinie getrennt (ohne Leerzeile), die naechste Zeile beginnt mit `class` (wie `typedef` in C).
 
 ---
 
@@ -56,7 +56,6 @@ Jede Datei beginnt mit diesem Kopfblock. Alle Doppelpunkte stehen mit Tabs ausge
 #-----------------------------------------------------------------------
 # Sprache	:	Python
 # Datum		:	TT.MM.JJJJ
-# Version	:	1.0
 # Autor		:	Diveturtle93
 # Projekt	:	<Projektname>
 # Quelle	:	<optional: URL / Herkunft, sonst leer>
@@ -81,7 +80,7 @@ Reihenfolge der Abschnitte (Pflicht, fett = immer vorhanden):
 4. **Einfuegen der externen Module** – per `pip` installierte Pakete: `can`, `dash`, `plotly`, …
 5. **Einfuegen der eigenen Module** – Module und Pakete des Projekts, relative Importe
 6. **Definiere Debug-Symbole** – `DEBUG_<NAME> = False`
-7. **Version definieren** – `<NAME>_MAJOR`, `_MINOR`, `_PATCH`, `_DEV`
+7. Version definieren – `<NAME>_MAJOR`, `_MINOR`, `_PATCH`, `_DEV`. Steht **genau einmal im Repository**, in einem Modul (siehe unten)
 8. Konstanten definieren
 9. Klassen – jede Klasse als eigener Abschnitt (Abschnittsname beschreibend, z. B. `Definiere Statemaschine Typedefines`)
 10. **Variablen definieren** – Modulvariablen (immer vorhanden, auch wenn leer)
@@ -95,11 +94,22 @@ Die Reihenfolge wird geprueft; optionale Abschnitte duerfen fehlen, die vorhande
 
 `<NAME>` ist der Dateiname in Grossbuchstaben ohne Endung (`can_bus.py` → `DEBUG_CAN_BUS`, `CAN_BUS_MAJOR`), bei einem `__init__.py` mit Inhalt der Name des Pakets (`decoders/__init__.py` → `DEBUG_DECODERS`, `DECODERS_MAJOR`).
 
+Die Version gilt fuer das ganze Repository, nicht fuer eine Datei. Der Abschnitt `Version definieren` steht deshalb nur in einem Modul, meist dem Hauptmodul oder dem Modul mit dem gemeinsamen Code (z. B. `tools/stylecheck_common.py`). Fehlt er im Repository oder steht er mehrfach, ist das ein Befund. `_DEV` ist auf `develop` 1 und in `main` 0. Release-Ablauf und Tags stehen im [Documentation Style, Abschnitt 6](DOCUMENTATION_STYLE.md#6-versionierung).
+
 Nicht benoetigte Debug-Symbole stehen auf `False` oder werden auskommentiert (`# DEBUG_<NAME> = True`); auch dann zaehlen sie als vorhanden.
+
+Der Abschnitt `Definiere Debug-Symbole` ist in jedem Modul Pflicht. In C ist er nur in einem Header Pflicht, zu dem eine gleichnamige `.c`-Datei existiert; ein Python-Modul ist Header und Quelldatei zugleich, deshalb gibt es diese Unterscheidung hier nicht.
 
 ### Imports
 
-- Ein Modul pro `import`-Zeile: `import os`, nicht `import os, sys`. `from paket import a, b` ist erlaubt; lange Listen in Klammern, ein Name pro Zeile, mit Tab eingerueckt.
+- Ein Modul pro `import`-Zeile: `import os`, nicht `import os, sys`. `from paket import a, b` ist erlaubt. Ab **6 Namen** steht die Liste in Klammern, ein Name pro Zeile, mit Tab eingerueckt:
+  ```python
+  from stylecheck_common import (
+  	COMMENT_COL,
+  	VALUE_COL,
+  	...
+  )
+  ```
 - Kein `from modul import *`.
 - Jeder Import steht im passenden Abschnitt:
   - **standard** – Modul der Standardbibliothek (`sys.stdlib_module_names`)
@@ -156,7 +166,6 @@ class CanManager:
 #-----------------------------------------------------------------------
 # Sprache	:	Python
 # Datum		:	12.10.2026
-# Version	:	1.0
 # Autor		:	Diveturtle93
 # Projekt	:	Beispiel
 # Quelle	:
@@ -185,10 +194,10 @@ DEBUG_BEISPIEL									= False
 
 # Version definieren
 #-----------------------------------------------------------------------
-BEISPIEL_MAJOR									= 0
+BEISPIEL_MAJOR									= 1
 BEISPIEL_MINOR									= 0
 BEISPIEL_PATCH									= 0
-BEISPIEL_DEV									= 0
+BEISPIEL_DEV									= 1
 #-----------------------------------------------------------------------
 
 # Konstanten definieren
@@ -258,7 +267,7 @@ if __name__ == "__main__":
 ### Bloecke und Kontrollstrukturen
 
 - Der Rumpf von `if`, `elif`, `else`, `for`, `while`, `with`, `try`, `except`, `finally`, `def`, `class`, `match` und `case` steht **immer** in einer eigenen Zeile.
-- Nach Schluesselwoertern ein Leerzeichen, wenn eine Klammer folgt: `if (a or b) and c:`, nicht `if(a or b) and c:`. Ohne Klammer: `if canIsActive:` (keine Klammern um einfache Bedingungen).
+- Nach Schluesselwoertern ein Leerzeichen, wenn eine Klammer folgt: `if (a or b) and c:`, nicht `if(a or b) and c:`. Das gilt fuer alle Schluesselwoerter, z. B. auch `return (`, `with (`, `not (`, `in (`, `except (`. Ohne Klammer: `if canIsActive:` (keine Klammern um einfache Bedingungen).
 - Folgt nur ein einzelnes `return`, steht es ebenfalls eingerueckt in der naechsten Zeile:
   ```python
   # Beende wenn CAN-Bus aktiv ist
@@ -312,6 +321,7 @@ match wert:
 ### Kommentare
 
 - **Blockkommentar** ueber einer Anweisungsgruppe: eigene Zeile, gleiche Einrueckung wie der Code.
+- Eine leere Kommentarzeile (`#` ohne Text) steht nur innerhalb eines mehrzeiligen Kommentarblocks.
 - **Zeilenkommentar** hinter Code (Konstanten, Enum-Werte, Attribute, Variablen): mit Tabs auf **Spalte 77** (Tabbreite 4) ausgerichtet. Ist der Code laenger, reicht ein Tab.
 - Enum-Werte werden im Kommentar mit ihrem Zahlenwert begonnen: `# 3 Anlasser betaetigt`.
 
@@ -341,9 +351,9 @@ RX_BUFFER_SIZE									= 64						# Groesse Empfangspuffer
 | Dateien / Module | Kleinbuchstaben, `_` als Trenner | `can_bus.py`, `cell_voltages.py` |
 | Pakete (Ordner) | Kleinbuchstaben | `decoders`, `callbacks` |
 | Debug-Symbol | `DEBUG_<DATEI>` | `DEBUG_CAN_BUS` |
-| Versions-Konstanten | `<DATEI>_MAJOR/_MINOR/_PATCH/_DEV` | `CAN_BUS_MAJOR` |
+| Versions-Konstanten | `<DATEI>_MAJOR/_MINOR/_PATCH/_DEV`, einmal im Repository | `CAN_BUS_MAJOR` |
 | Konstanten | `GROSSBUCHSTABEN` | `ERROR_RESET` |
-| Funktionen / Methoden | camelCase, Modul-Praefix erlaubt | `setState`, `CANwrite` |
+| Funktionen / Methoden | camelCase, Modul-Praefix erlaubt, Woerter duerfen mit `_` getrennt werden | `setState`, `CANwrite`, `can_sendFrame` |
 | Variablen / Parameter / Attribute | camelCase | `sizeRxBuffer`, `timeError` |
 | Globale Instanzen | `Main_<Name>` bzw. `<Modul>_<Name>` | `Main_Statemaschine`, `CAN_Manager` |
 | Klassen | PascalCase, `<Name>_TypeDef` / `<Name>TypeDef` erlaubt | `CanManager`, `CAN_PaketTypeDef` |
@@ -351,7 +361,7 @@ RX_BUFFER_SIZE									= 64						# Groesse Empfangspuffer
 | Modulintern | fuehrender `_` | `_unpack`, `_BACKOFF_MAX` |
 | Spezialmethoden | unveraendert | `__init__`, `__str__` |
 
-Geprueft werden die Namen von Funktionen, Methoden und Klassen (kein `snake_case`). Methoden, deren Name von einer fremden Bibliothek vorgegeben ist (z. B. `do_GET`), werden gemeldet und koennen ignoriert werden.
+Geprueft werden nur die Namen von Klassen, wie in C die uebrigen Konventionen nicht.
 
 ---
 
@@ -362,7 +372,7 @@ Dieser Standard weicht bewusst von PEP 8 ab:
 | PEP 8 | Dieser Standard |
 |---|---|
 | 4 Leerzeichen | Tabs (Tabbreite 4) |
-| `snake_case` fuer Funktionen und Variablen | camelCase |
+| `snake_case` fuer Funktionen und Variablen | camelCase, bei Funktionen auch mit `_` |
 | `def name(x):` | `def name (x):` |
 | 2 Leerzeilen zwischen Funktionen/Klassen | 1 Leerzeile + Abschnitt mit Trennlinien |
 | Docstrings | Kommentar ueber der Definition |
@@ -375,18 +385,18 @@ Linter wie `flake8` oder `pylint` melden diese Punkte; dort die Regeln `W191`, `
 
 ## 7. Automatische Pruefung
 
-Das Skript [tools/py_stylecheck.py](tools/py_stylecheck.py) prueft Python-Dateien gegen diesen Standard. Aufruf, Reports, Ausschluesse und Projekteinstellungen sind in [tools/README.md](tools/README.md) beschrieben.
+Das Skript [tools/py_stylecheck.py](../tools/py_stylecheck.py) prueft Python-Dateien gegen diesen Standard. Aufruf, Reports, Ausschluesse und Projekteinstellungen sind in [tools/README.md](../tools/README.md) beschrieben.
 
 ---
 
 ## 8. Checkliste
 
-- [ ] Dateikopf vollstaendig (Titel, Sprache, Datum, Version, Autor, Projekt, Quelle)
+- [ ] Dateikopf vollstaendig (Titel, Sprache, Datum, Autor, Projekt, Quelle), ohne Version
 - [ ] Alle Pflichtabschnitte vorhanden und in der richtigen Reihenfolge
 - [ ] Leere Import-Abschnitte trotzdem angelegt
 - [ ] Abschnitt `Variablen definieren` vorhanden (auch wenn leer)
 - [ ] `Definiere Debug-Symbole` mit `DEBUG_<NAME>` vorhanden
-- [ ] Versions-Konstanten vorhanden
+- [ ] Versions-Konstanten genau einmal im Repository, in einem Modul
 - [ ] Datei endet mit Trennlinie
 - [ ] Jede Funktion und Klasse mit Beschreibungskommentar und Trennlinien, jede Methode mit Kommentar darueber
 - [ ] Tabs statt Leerzeichen, Rumpf immer in eigener Zeile
