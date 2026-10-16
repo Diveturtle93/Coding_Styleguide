@@ -1,12 +1,12 @@
 # Architektur Coding_Styleguide
 
-Das Repository besteht aus den Regeln (`*_STYLE.md`) und zwei Prüfern in `tools/`, die Quelldateien in den Nachbar-Repos gegen diese Regeln prüfen. Beide Prüfer laufen nach demselben Ablauf: Projekte finden, jede Datei prüfen, Befunde sammeln, ausgeben oder als Report schreiben. Dieser Ablauf und alles, was beide Sprachen gleich prüfen, liegt in `stylecheck_common.py`. Die Prüfer enthalten nur die Regeln ihrer Sprache.
+Das Repository besteht aus den Regeln (`docs/*_STYLE.md`) und zwei Prüfern in `tools/`, die Quelldateien in den Nachbar-Repos gegen diese Regeln prüfen. Beide Prüfer laufen nach demselben Ablauf: Projekte finden, jede Datei prüfen, Befunde sammeln, ausgeben oder als Report schreiben. Dieser Ablauf und alles, was beide Sprachen gleich prüfen, liegt in `stylecheck_common.py`. Die Prüfer enthalten nur die Regeln ihrer Sprache.
 
 ## Komponenten
 
 ```mermaid
 flowchart LR
-    subgraph Regeln
+    subgraph Regeln[docs]
         CS[C_CODING_STYLE.md]
         PS[PYTHON_CODING_STYLE.md]
     end
@@ -37,7 +37,7 @@ flowchart LR
 | Gemeinsamer Code | `tools/stylecheck_common.py` | `run()` mit Kommandozeile, Projektsuche (`collectProjects`, `projectSettings`), Ausgabe, Reports und Übersicht. Gemeinsame Prüfungen: Zeilenenden (`readLines`), Kopfblock (`checkHead`), Abschnittsform, Pflicht- und Variablen-Abschnitte, Debug-Abschnitt, Reihenfolge (`checkOrder`) und Version je Projekt (`checkProjectVersion`). Enthält den Abschnitt `Version definieren` des Repositories |
 | C-Prüfer | `tools/c_stylecheck.py` | Prüft `.c`/`.h` zeilenweise mit regulären Ausdrücken (Header, Formatierung, `switch`/`case`, Ausrichtung). Erkennt von STM32CubeMX erzeugte Dateien und prüft dort nur die `USER CODE`-Bereiche |
 | Python-Prüfer | `tools/py_stylecheck.py` | Prüft `.py` mit `ast` (Imports, Funktionen, Klassen, Abschnitte) und `tokenize` (Kommentare, Strings, Anweisungen) |
-| Regeln | `C_CODING_STYLE.md`, `PYTHON_CODING_STYLE.md`, `DOCUMENTATION_STYLE.md` | Maßgebliche Beschreibung. Der Prüfer setzt um, was dort steht, nicht umgekehrt |
+| Regeln | `docs/C_CODING_STYLE.md`, `docs/PYTHON_CODING_STYLE.md`, `docs/DOCUMENTATION_STYLE.md` | Maßgebliche Beschreibung. Der Prüfer setzt um, was dort steht, nicht umgekehrt |
 | Projekteinstellungen | `.stylecheck` im geprüften Projekt | Zusätzliche Aus- und Einschlüsse, `[stylecheck]` für beide Sprachen, `[c]` und `[py]` je Sprache |
 
 Jeder Prüfer beschreibt seine Sprache mit einem `Language`-Objekt: Name, Regeldatei, Dateiendungen, Zeile des Versionsabschnitts, automatische Ausschlüsse, eine Funktion `checkProject`, die alle Dateien eines Projekts prüft, und optional `isGenerated` für erzeugte Dateien.
@@ -82,7 +82,7 @@ sequenceDiagram
 
 ## Erweiterung
 
-- **Neue Prüfung für eine Sprache:** in `checkFile()` des passenden Prüfers mit `add(zeile, "Kategorie", "Info")` einen Befund melden. Gilt sie für beide Sprachen, gehört sie als Funktion nach `stylecheck_common.py`. Die Regel steht vorher im zugehörigen `*_STYLE.md`.
-- **Neue Einstellung in `.stylecheck`:** in `projectSettings()` auswerten. Unbekannte Abschnitte und Einträge erzeugen dort eine Warnung, ein neuer Abschnitt muss deshalb in `CONFIG_SECTIONS` eingetragen werden.
+- **Neue Prüfung für eine Sprache:** in `checkFile()` des passenden Prüfers mit `add(zeile, "Kategorie", "Info")` einen Befund melden. Gilt sie für beide Sprachen, gehört sie als Funktion nach `stylecheck_common.py`. Die Regel steht vorher im zugehörigen `docs/*_STYLE.md`.
+- **Neue Einstellung in `.stylecheck`:** in `projectSettings()` auswerten. Unbekannte Abschnitte und Einträge erzeugen dort eine Warnung, ein neuer Abschnitt muss deshalb in `CONFIG_SECTIONS` eingetragen werden. `[doc]` steht dort schon für das geplante `doc_check.py` und wird von den Stylechecks überlesen.
 - **Neuer Prüfer** (z. B. `doc_check.py`): ein `Language`-Objekt mit eigenem `key` (Abschnitt in `.stylecheck` und Report-Unterordner) und eigenem `checkProject` anlegen und `run()` aufrufen. Optionen, Reports und Übersicht kommen damit automatisch.
-- **Version:** Das Repository hat nach `DOCUMENTATION_STYLE.md` Abschnitt 6 genau eine Version. Sie steht im Abschnitt `Version definieren` von `stylecheck_common.py` (`STYLECHECK_COMMON_*`).
+- **Version:** Das Repository hat nach `docs/DOCUMENTATION_STYLE.md` Abschnitt 6 genau eine Version. Sie steht im Abschnitt `Version definieren` von `stylecheck_common.py` (`STYLECHECK_COMMON_*`).

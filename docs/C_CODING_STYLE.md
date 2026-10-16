@@ -38,7 +38,8 @@ Jeder Abschnitt einer Datei hat immer dieselbe Form:
 
 - Zwischen zwei Abschnitten steht genau **eine Leerzeile**.
 - Die Include-Abschnitte (und in `.c`-Dateien `Variablen definieren`) werden **immer** angelegt, auch wenn sie leer sind (dann steht eine Leerzeile zwischen den Linien).
-- Mehrere Typdefinitionen innerhalb eines Abschnitts werden nur durch eine Trennlinie getrennt (ohne Leerzeile).
+- Mehrere Typdefinitionen innerhalb eines Abschnitts werden nur durch eine Trennlinie getrennt (ohne Leerzeile), die naechste Zeile beginnt mit `typedef`. Andere Abschnitte (z. B. eine Untergruppe in `Konstanten definieren` mit eigener Ueberschrift) sind eigene Abschnitte mit Leerzeile davor.
+- Die Form wird fuer alle Abschnitte mit festem Namen und fuer die Typedef-Abschnitte geprueft.
 
 ---
 
@@ -320,7 +321,7 @@ uint8_t getBeispiel (uint8_t index)
 ### Klammern und Kontrollstrukturen
 
 - Allman-Stil fuer Funktionen, `if`, `else`, `for`, `while`, `switch`, `struct`, `enum`, `union`.
-- Nach Schluesselwoertern ein Leerzeichen: `if (`, `switch (`, `while (`.
+- Nach Schluesselwoertern ein Leerzeichen: `if (`, `for (`, `switch (`, `while (`, `return (`. `sizeof(...)` wird wie ein Funktionsaufruf ohne Leerzeichen geschrieben.
 - `if` / `else` **immer** mit geschweiften Klammern.
 - Ausnahme: Folgt auf ein `if`, `else if` oder `else` direkt ein einzelnes `return ...;`, sind keine Klammern noetig:
   ```c
@@ -385,7 +386,7 @@ else
 - Jeder Block endet mit `break;`, `return`, `continue` oder `goto`. Ausnahme: der letzte Block im `switch`.
 - Gewolltes Durchfallen (Fall-through) ist erlaubt, muss aber als **letzte Zeile im Block** mit diesem Kommentar markiert werden:
   `// fall through - <Begruendung>`
-  Die Schreibweise `fall through` erkennt auch GCC (`-Wimplicit-fallthrough`); hinter dem Bindestrich steht die deutsche Begruendung. Ein `break;` nur innerhalb eines `if` zaehlt nicht – auch dann ist die Markierung noetig.
+  Die Schreibweise `fall through` erkennt auch GCC (`-Wimplicit-fallthrough`); hinter dem Bindestrich steht die deutsche Begruendung. Eine laengere Begruendung darf in den folgenden `//`-Zeilen weitergehen, die Markierung ist dann die erste Zeile dieses Kommentarblocks am Ende des Blocks. Ein `break;` nur innerhalb eines `if` zaehlt nicht – auch dann ist die Markierung noetig.
 - Mehrere `case`-Marken direkt untereinander brauchen **keine** Markierung.
 
 ```c
@@ -446,6 +447,7 @@ switch (wert)
 
 - Der Wert steht mit Tabs auf **Spalte 49** (Tabbreite 4). Ist der Name laenger, reicht ein Tab.
 - Name in `GROSSBUCHSTABEN` mit `_`.
+- Ausnahme: Pin-Defines aus CubeMX behalten ihre Endung `_Pin` bzw. `_Port` (`LED_Pin`, `LED_GPIO_Port`).
 
 ```c
 #define TIMEOUT									1000						// Timeout in ms
@@ -462,6 +464,7 @@ switch (wert)
 | Include-Guard | `INC_<DATEI>_H_` | `INC_CANBUS_H_` |
 | Versions-Defines | `<DATEI>_MAJOR/_MINOR/_PATCH/_DEV`, einmal im Repository | `MILLIS_MAJOR` |
 | Konstanten / Makros | `GROSSBUCHSTABEN` | `ERROR_RESET` |
+| Pin-Defines (CubeMX) | `<NAME>_Pin`, `<NAME>_GPIO_Port` | `LED_Pin`, `LED_GPIO_Port` |
 | Funktionen | camelCase, Modul-Praefix erlaubt, Woerter duerfen mit `_` getrennt werden | `setState`, `CANwrite`, `ADC_Bremsdruck`, `ltc6811_write` |
 | Variablen | camelCase | `sizeRxBuffer`, `timeError` |
 | Globale Instanzen | `Main_<Name>` bzw. `<Modul>_<Name>` | `Main_Statemaschine` |
@@ -474,7 +477,7 @@ Geprueft werden nur die Namen von `#define` (`GROSSBUCHSTABEN`), die uebrigen Ko
 
 ## 7. Automatische Pruefung
 
-Das Skript [tools/c_stylecheck.py](tools/c_stylecheck.py) prueft C-Dateien gegen diesen Standard. Aufruf, Reports, Ausschluesse und Projekteinstellungen sind in [tools/README.md](tools/README.md) beschrieben.
+Das Skript [tools/c_stylecheck.py](../tools/c_stylecheck.py) prueft C-Dateien gegen diesen Standard. Aufruf, Reports, Ausschluesse und Projekteinstellungen sind in [tools/README.md](../tools/README.md) beschrieben.
 
 ---
 

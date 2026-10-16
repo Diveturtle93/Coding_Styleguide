@@ -12,9 +12,12 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 - `CHANGELOG.md` mit den Änderungen je Version.
 - Stylechecks melden, wenn der Abschnitt `Version definieren` in einem Projekt fehlt oder mehrfach vorkommt (in C außerdem, wenn er in einer `.c`-Datei steht), und eine noch vorhandene Zeile `Version` im Kopfblock.
 - `tools/stylecheck_common.py` enthält den gemeinsamen Code beider Prüfer.
-- C-Stylecheck meldet Includes im falschen Include-Abschnitt, Funktionen ohne Trennlinie danach, `break;` hinter einem case-Block und `#define`-Namen, die nicht in Großbuchstaben stehen.
+- C-Stylecheck meldet Includes im falschen Include-Abschnitt, Funktionen ohne Trennlinie danach, `break;` hinter einem case-Block und `#define`-Namen, die nicht in Großbuchstaben stehen. Pin-Defines aus CubeMX mit Endung `_Pin` bzw. `_Port` (`LED_Pin`, `LED_GPIO_Port`) sind davon ausgenommen.
 - Beide Stylechecks melden mehr als eine Leerzeile zwischen zwei Abschnitten.
 - C und Python Coding Style: Regeln für das Leerzeichen nach `//` und für leere Kommentarzeilen; C: Zuordnung der Includes zu den Abschnitten.
+- C-Stylecheck prüft die Form aller Header-Abschnitte mit festem Namen (z. B. `Konstanten definieren`, `Version definieren`) und der Typedef-Abschnitte, wie Python bei Konstanten und Klassen.
+- Python-Stylecheck meldet `from`-Importe mit mehr als 5 Namen, die nicht einen Namen pro Zeile haben.
+- `.stylecheck`: Der Abschnitt `[doc]` für das geplante `doc_check.py` erzeugt keine Warnung mehr.
 
 ### Geändert
 - README nach der Gliederung für Referenz-Repos: Beschreibung, Inhalt, Verwendung und Abhängigkeiten.
@@ -24,10 +27,15 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 - C-Dateien: `Sprache` im Kopfblock muss `C` enthalten, die Include-Abschnitte werden wie in Python auf ihre Form geprüft.
 - C und Python Coding Style: Funktionsnamen dürfen Wörter mit `_` trennen (`ADC_Bremsdruck`, `ltc6811_write`). Geprüft werden nur noch die Namen von `#define` (C) und Klassen (Python).
 - C-Stylecheck: Als Fall-through-Markierung zählt nur noch `// fall through - <Begruendung>`, andere Schreibweisen werden gemeldet.
+- Die Styleguides liegen jetzt in `docs/` (`docs/C_CODING_STYLE.md`, `docs/PYTHON_CODING_STYLE.md`, `docs/DOCUMENTATION_STYLE.md`), wie es der Documentation Style für Fachdokumente verlangt.
+- Leerzeichen vor `(` nach Schlüsselwörtern: Python prüft alle Schlüsselwörter (z. B. auch `return (`, `with (`), C zusätzlich `return (`.
+- Python Coding Style begründet, warum der Debug-Abschnitt anders als in C in jedem Modul Pflicht ist.
 
 ### Behoben
 - C-Stylecheck: Das `default` eines verschachtelten `switch` zählt nicht mehr für den äußeren.
+- C-Stylecheck: Eine Fall-through-Markierung mit mehrzeiliger Begründung wird erkannt.
 - Beide Stylechecks erkennen gemischte Einrückung aus Tabs und Leerzeichen, nicht nur führende Leerzeichen.
+- `tools/README.md` nennt alle automatischen Ausschlüsse so, wie die Prüfer sie anwenden.
 
 ## [1.0.0] - 2026-10-14
 

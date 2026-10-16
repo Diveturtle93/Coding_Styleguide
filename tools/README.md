@@ -4,8 +4,8 @@ Die Skripte pruefen Quelldateien gegen die Coding Styles von **Diveturtle93**:
 
 | Skript | Prueft | Regeln | Voraussetzung |
 |---|---|---|---|
-| [c_stylecheck.py](c_stylecheck.py) | `.c` / `.h` | [C Coding Style](../C_CODING_STYLE.md) | Python 3 |
-| [py_stylecheck.py](py_stylecheck.py) | `.py` | [Python Coding Style](../PYTHON_CODING_STYLE.md) | Python 3.10+ |
+| [c_stylecheck.py](c_stylecheck.py) | `.c` / `.h` | [C Coding Style](../docs/C_CODING_STYLE.md) | Python 3 |
+| [py_stylecheck.py](py_stylecheck.py) | `.py` | [Python Coding Style](../docs/PYTHON_CODING_STYLE.md) | Python 3.10+ |
 
 Gemeinsam genutzter Code (Kommandozeile, Projektsuche, `.stylecheck`, Kopfblock- und Abschnittspruefungen, Reihenfolge, Reports und Uebersicht) liegt in [stylecheck_common.py](stylecheck_common.py). Es wird nicht selbst aufgerufen und muss im selben Ordner wie die Skripte liegen.
 
@@ -60,16 +60,17 @@ Der Ordner `reports/` steht in der `.gitignore`.
 
 ## Automatische Ausschluesse
 
-Git-Submodule aus der `.gitmodules` des Projekts werden immer uebersprungen; sie sind eigene Repos und werden dort geprueft. Dazu kommen je Sprache:
+Git-Submodule aus der `.gitmodules` des Projekts und der Ordner `.git` werden immer uebersprungen; Submodule sind eigene Repos und werden dort geprueft. Dazu kommen je Sprache:
 
 **C**
 
-- HAL-, CMSIS- und Startup-Dateien werden uebersprungen.
+- Ordner `Drivers`, `Middlewares`, `CMSIS` (HAL, CMSIS, Middleware von ST) sowie `Debug`, `Release` und `build` (Build-Ausgaben).
+- Dateien `stm32*_hal*` (ausser `stm32*_hal_msp.c`), `system_stm32*`, `startup_*`, `syscalls.c` und `sysmem.c`.
 - Von STM32CubeMX generierte Dateien (z. B. unter `Core/`) werden nur zwischen `/* USER CODE BEGIN ... */` und `/* USER CODE END ... */` geprueft. Der Bereich `Header` (ST-Lizenzkopf) und die Pruefungen der Dateistruktur (Kopfblock, Abschnitte, Header, Debug-Symbole, Reihenfolge, Include-Abschnitte) entfallen, fehlerhafte Marker werden gemeldet. Im Report sind diese Dateien mit `nur USER CODE` gekennzeichnet.
 
 **Python**
 
-- Virtuelle Umgebungen (`venv`, `.venv`, `env`), `__pycache__`, `build`, `dist` und `site-packages` werden uebersprungen.
+- Ordner fuer virtuelle Umgebungen (`venv`, `.venv`, `env`, `site-packages`), Caches (`__pycache__`, `.tox`, `.mypy_cache`, `.pytest_cache`), Build-Ausgaben (`build`, `dist`) und `node_modules`.
 
 Mit `--no-default-exclude` werden alle diese Dateien vollstaendig geprueft.
 
@@ -77,13 +78,14 @@ Mit `--no-default-exclude` werden alle diese Dateien vollstaendig geprueft.
 
 ## Projekteinstellungen (`.stylecheck`)
 
-Projektspezifische Einstellungen stehen optional in der Datei `.stylecheck` im Projektordner. Sie wird von beiden Skripten gelesen:
+Projektspezifische Einstellungen stehen optional in der Datei `.stylecheck` im Projektordner. Sie wird von beiden Skripten gelesen, ein unbekannter Abschnitt oder Eintrag erzeugt eine Warnung:
 
 | Abschnitt | Gilt fuer |
 |---|---|
 | `[stylecheck]` | beide Sprachen |
 | `[c]` | nur `c_stylecheck.py`, ergaenzt `[stylecheck]` |
 | `[py]` | nur `py_stylecheck.py`, ergaenzt `[stylecheck]` |
+| `[doc]` | das geplante `doc_check.py` (Repo-Klasse, siehe [Documentation Style, Abschnitt 11](../docs/DOCUMENTATION_STYLE.md#11-automatische-prüfung)), wird von den Stylechecks ueberlesen |
 
 Ordner oder einzelne Dateien werden relativ zum Projektordner angegeben, mehrere mit Komma getrennt:
 

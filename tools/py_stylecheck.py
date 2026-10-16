@@ -11,7 +11,7 @@
 
 # Beschreibung
 #-----------------------------------------------------------------------
-# Prueft Python-Dateien (.py) gegen PYTHON_CODING_STYLE.md
+# Prueft Python-Dateien (.py) gegen docs/PYTHON_CODING_STYLE.md
 # Aufruf:
 #   py tools/py_stylecheck.py                      -> alle Ordner neben diesem Repo
 #   py tools/py_stylecheck.py ../EAuto_Dashboard   -> einzelner Ordner
@@ -46,6 +46,7 @@
 #-----------------------------------------------------------------------
 import ast
 import io
+import keyword
 import os
 import re
 import sys
@@ -59,7 +60,25 @@ import tokenize
 
 # Einfuegen der eigenen Module
 #-----------------------------------------------------------------------
-from stylecheck_common import COMMENT_COL, VALUE_COL, VERSION_KEYS, Issue, Language, checkBlankLines, checkHead, checkOrder, checkRequiredSections, checkSectionForm, checkVarSections, debugSections, readLines, run, sectionName, short, tabcol
+from stylecheck_common import (
+	COMMENT_COL,
+	VALUE_COL,
+	VERSION_KEYS,
+	Issue,
+	Language,
+	checkBlankLines,
+	checkHead,
+	checkOrder,
+	checkRequiredSections,
+	checkSectionForm,
+	checkVarSections,
+	debugSections,
+	readLines,
+	run,
+	sectionName,
+	short,
+	tabcol,
+)
 #-----------------------------------------------------------------------
 
 # Definiere Debug-Symbole
@@ -115,8 +134,12 @@ OPEN											= {"(", "[", "{"}
 CLOSE											= {")", "]", "}"}
 STRING_TOKENS									= {tokenize.STRING} | {getattr(tokenize, n) for n in ("FSTRING_MIDDLE", "TSTRING_MIDDLE") if hasattr(tokenize, n)}
 
-# Schluesselwoerter, nach denen vor "(" ein Leerzeichen steht
-SPACE_KEYWORDS									= {"if", "elif", "while", "for"}
+# Schluesselwoerter, nach denen vor "(" ein Leerzeichen steht (alle ausser den Werten True/False/None)
+SPACE_KEYWORDS									= set(keyword.kwlist) - {"True", "False", "None"}
+SPACE_SOFT_KEYWORDS								= {"match", "case"}			# nur, wenn sie als Schluesselwort stehen
+
+# Bei mehr Namen steht ein from-Import in Klammern, ein Name pro Zeile
+IMPORT_MAX_NAMES								= 5
 
 # Klassen PascalCase oder <Name>_TypeDef, Funktionsnamen werden wie in C nicht geprueft
 PASCAL											= re.compile(r"^_*[A-Z][a-zA-Z0-9]*(_[A-Z][a-zA-Z0-9]*)*$")
@@ -237,8 +260,8 @@ def checkTokens (tokens, softLines, add):
 		if t.type == tokenize.OP and t.string == ";":
 			add(t.start[0], "Semikolon", short(t.line))
 
-		# "if(" statt "if (" (match nur, wenn es als Schluesselwort steht)
-		isKeyword = t.string in SPACE_KEYWORDS or (t.string == "match" and t.start[0] in softLines)
+		# "if(" statt "if (" (match/case nur, wenn sie als Schluesselwort stehen)
+		isKeyword = t.string in SPACE_KEYWORDS or (t.string in SPACE_SOFT_KEYWORDS and t.start[0] in softLines)
 		if t.type == tokenize.NAME and isKeyword and k + 1 < len(tokens):
 			nxt = tokens[k + 1]
 			if nxt.string == "(" and nxt.start == t.end:
@@ -346,8 +369,14 @@ def checkTree (L, tree, fileDir, base, add):
 			last = node.cases[-1]
 			if last.guard is not None or not (isinstance(last.pattern, ast.MatchAs) and last.pattern.pattern is None):
 				add(node.lineno, "match ohne case _", short(L[node.lineno - 1]))
-		elif isinstance(node, ast.ImportFrom) and any(a.name == "*" for a in node.names):
-			add(node.lineno, "import *", short(L[node.lineno - 1]))
+		elif isinstance(node, ast.ImportFrom):
+			if any(a.name == "*" for a in node.names):
+				add(node.lineno, "import *", short(L[node.lineno - 1]))
+
+			# Lange Liste: in Klammern, jeder Name in eigener Zeile
+			rows = [a.lineno for a in node.names]
+			if len(rows) > IMPORT_MAX_NAMES and (node.lineno in rows or len(set(rows)) < len(rows)):
+				add(node.lineno, f"from-Import mit mehr als {IMPORT_MAX_NAMES} Namen nicht ein Name pro Zeile", short(L[node.lineno - 1]))
 
 	# Pruefungen auf Modulebene
 	owners = sectionMap(L)
@@ -516,6 +545,6 @@ def checkProject (base, files):
 # Hauptprogramm
 #-----------------------------------------------------------------------
 if __name__ == "__main__":
-	sys.exit(run(Language("Python", "py", "PYTHON_CODING_STYLE.md", (".py",), VERSION_SECTION, DEFAULT_EXCLUDE,
+	sys.exit(run(Language("Python", "py", "docs/PYTHON_CODING_STYLE.md", (".py",), VERSION_SECTION, DEFAULT_EXCLUDE,
 		"virtuelle Umgebungen, Caches, Build-Ordner und Submodule mitpruefen", checkProject)))
 #-----------------------------------------------------------------------

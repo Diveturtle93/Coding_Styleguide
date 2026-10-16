@@ -10,9 +10,9 @@ Die Regeln legen fest, wie C- und Python-Dateien aufgebaut und formatiert sind u
 
 | Datei | Inhalt |
 |---|---|
-| [C_CODING_STYLE.md](C_CODING_STYLE.md) | Regeln für C-Dateien (`.c` / `.h`), geprüft von [tools/c_stylecheck.py](tools/c_stylecheck.py) |
-| [PYTHON_CODING_STYLE.md](PYTHON_CODING_STYLE.md) | Regeln für Python-Dateien (`.py`), geprüft von [tools/py_stylecheck.py](tools/py_stylecheck.py) |
-| [DOCUMENTATION_STYLE.md](DOCUMENTATION_STYLE.md) | Regeln für die Dokumentation (`.md`) und die Versionierung, Prüfung mit `tools/doc_check.py` geplant |
+| [docs/C_CODING_STYLE.md](docs/C_CODING_STYLE.md) | Regeln für C-Dateien (`.c` / `.h`), geprüft von [tools/c_stylecheck.py](tools/c_stylecheck.py) |
+| [docs/PYTHON_CODING_STYLE.md](docs/PYTHON_CODING_STYLE.md) | Regeln für Python-Dateien (`.py`), geprüft von [tools/py_stylecheck.py](tools/py_stylecheck.py) |
+| [docs/DOCUMENTATION_STYLE.md](docs/DOCUMENTATION_STYLE.md) | Regeln für die Dokumentation (`.md`) und die Versionierung, Prüfung mit `tools/doc_check.py` geplant |
 | [tools/](tools/README.md) | Prüfskripte: Aufruf, Optionen, Reports und Projekteinstellungen (`.stylecheck`) |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Aufbau und Ablauf der Prüfskripte |
 | [CHANGELOG.md](CHANGELOG.md) | Änderungen je Version |

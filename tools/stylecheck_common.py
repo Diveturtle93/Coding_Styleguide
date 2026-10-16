@@ -53,7 +53,7 @@ STYLECHECK_COMMON_DEV							= 1
 # Konstanten definieren
 #-----------------------------------------------------------------------
 CONFIG_FILE										= ".stylecheck"				# Projekt-Einstellungen (C und Python)
-CONFIG_SECTIONS									= ("stylecheck", "c", "py")	# [stylecheck] gilt fuer beide Sprachen
+CONFIG_SECTIONS									= ("stylecheck", "c", "py", "doc")	# [stylecheck] gilt fuer beide Sprachen, [doc] fuer doc_check.py
 LEGACY_CONFIG_FILES								= (".c_stylecheck", ".py_stylecheck")	# alte Dateinamen, nur noch Warnung
 TAB_WIDTH										= 4							# Tabbreite
 COMMENT_COL										= 77						# Spalte der Zeilenkommentare

@@ -42,7 +42,7 @@ Jeder Abschnitt einer Datei hat immer dieselbe Form:
 
 - Zwischen zwei Abschnitten steht genau **eine Leerzeile**.
 - Die Import-Abschnitte und `Variablen definieren` werden **immer** angelegt, auch wenn sie leer sind (dann steht eine Leerzeile zwischen den Linien).
-- Mehrere Klassen innerhalb eines Abschnitts (z. B. zusammengehoerige Enums) werden nur durch eine Trennlinie getrennt (ohne Leerzeile).
+- Mehrere Klassen innerhalb eines Abschnitts (z. B. zusammengehoerige Enums) werden nur durch eine Trennlinie getrennt (ohne Leerzeile), die naechste Zeile beginnt mit `class` (wie `typedef` in C).
 
 ---
 
@@ -98,9 +98,18 @@ Die Version gilt fuer das ganze Repository, nicht fuer eine Datei. Der Abschnitt
 
 Nicht benoetigte Debug-Symbole stehen auf `False` oder werden auskommentiert (`# DEBUG_<NAME> = True`); auch dann zaehlen sie als vorhanden.
 
+Der Abschnitt `Definiere Debug-Symbole` ist in jedem Modul Pflicht. In C ist er nur in einem Header Pflicht, zu dem eine gleichnamige `.c`-Datei existiert; ein Python-Modul ist Header und Quelldatei zugleich, deshalb gibt es diese Unterscheidung hier nicht.
+
 ### Imports
 
-- Ein Modul pro `import`-Zeile: `import os`, nicht `import os, sys`. `from paket import a, b` ist erlaubt; lange Listen in Klammern, ein Name pro Zeile, mit Tab eingerueckt.
+- Ein Modul pro `import`-Zeile: `import os`, nicht `import os, sys`. `from paket import a, b` ist erlaubt. Ab **6 Namen** steht die Liste in Klammern, ein Name pro Zeile, mit Tab eingerueckt:
+  ```python
+  from stylecheck_common import (
+  	COMMENT_COL,
+  	VALUE_COL,
+  	...
+  )
+  ```
 - Kein `from modul import *`.
 - Jeder Import steht im passenden Abschnitt:
   - **standard** – Modul der Standardbibliothek (`sys.stdlib_module_names`)
@@ -258,7 +267,7 @@ if __name__ == "__main__":
 ### Bloecke und Kontrollstrukturen
 
 - Der Rumpf von `if`, `elif`, `else`, `for`, `while`, `with`, `try`, `except`, `finally`, `def`, `class`, `match` und `case` steht **immer** in einer eigenen Zeile.
-- Nach Schluesselwoertern ein Leerzeichen, wenn eine Klammer folgt: `if (a or b) and c:`, nicht `if(a or b) and c:`. Ohne Klammer: `if canIsActive:` (keine Klammern um einfache Bedingungen).
+- Nach Schluesselwoertern ein Leerzeichen, wenn eine Klammer folgt: `if (a or b) and c:`, nicht `if(a or b) and c:`. Das gilt fuer alle Schluesselwoerter, z. B. auch `return (`, `with (`, `not (`, `in (`, `except (`. Ohne Klammer: `if canIsActive:` (keine Klammern um einfache Bedingungen).
 - Folgt nur ein einzelnes `return`, steht es ebenfalls eingerueckt in der naechsten Zeile:
   ```python
   # Beende wenn CAN-Bus aktiv ist
@@ -376,7 +385,7 @@ Linter wie `flake8` oder `pylint` melden diese Punkte; dort die Regeln `W191`, `
 
 ## 7. Automatische Pruefung
 
-Das Skript [tools/py_stylecheck.py](tools/py_stylecheck.py) prueft Python-Dateien gegen diesen Standard. Aufruf, Reports, Ausschluesse und Projekteinstellungen sind in [tools/README.md](tools/README.md) beschrieben.
+Das Skript [tools/py_stylecheck.py](../tools/py_stylecheck.py) prueft Python-Dateien gegen diesen Standard. Aufruf, Reports, Ausschluesse und Projekteinstellungen sind in [tools/README.md](../tools/README.md) beschrieben.
 
 ---
 

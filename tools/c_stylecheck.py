@@ -11,7 +11,7 @@
 
 # Beschreibung
 #-----------------------------------------------------------------------
-# Prueft C-Dateien (.c/.h) gegen C_CODING_STYLE.md
+# Prueft C-Dateien (.c/.h) gegen docs/C_CODING_STYLE.md
 # Aufruf:
 #   py tools/c_stylecheck.py                      -> alle Ordner neben diesem Repo
 #   py tools/c_stylecheck.py ../STM32_Canbus      -> einzelner Ordner
@@ -36,9 +36,9 @@
 #
 # Ein Projekt ist jeder Ordner, der als Pfad angegeben oder per Glob gefunden wird.
 #
-# Automatisch uebersprungen: Drivers/, Middlewares/, Debug/, Release/, build/,
-# HAL-/Startup-/System-Dateien sowie Git-Submodule aus der .gitmodules des Projekts
-# (werden separat geprueft).
+# Automatisch uebersprungen: .git/, Drivers/, Middlewares/, CMSIS/, Debug/, Release/, build/,
+# HAL-/Startup-/System-Dateien, syscalls.c, sysmem.c sowie Git-Submodule aus der .gitmodules
+# des Projekts (werden separat geprueft).
 #
 # Von STM32CubeMX generierte Dateien ("USER CODE BEGIN") werden nur zwischen
 # USER CODE BEGIN und USER CODE END geprueft, ohne den Bereich "Header" und ohne
@@ -69,7 +69,25 @@ import sys
 
 # Einfuegen der eigenen Module
 #-----------------------------------------------------------------------
-from stylecheck_common import COMMENT_COL, VALUE_COL, VERSION_KEYS, Issue, Language, checkBlankLines, checkHead, checkOrder, checkRequiredSections, checkSectionForm, checkVarSections, debugSections, readLines, run, sectionName, short, tabcol
+from stylecheck_common import (
+	COMMENT_COL,
+	VALUE_COL,
+	VERSION_KEYS,
+	Issue,
+	Language,
+	checkBlankLines,
+	checkHead,
+	checkOrder,
+	checkRequiredSections,
+	checkSectionForm,
+	checkVarSections,
+	debugSections,
+	readLines,
+	run,
+	sectionName,
+	short,
+	tabcol,
+)
 #-----------------------------------------------------------------------
 
 # Definiere Debug-Symbole
@@ -103,6 +121,11 @@ DEBUG_NAME										= re.compile(r"//\s*\w+\s+Debug[\s-]*Symbol", re.I)
 VERSION_SECTION									= "// Version definieren"	# genau einmal im Projekt
 VAR_SECTION										= "// Variablen definieren"
 VAR_INC_SECTION									= "// Variablen einbinden"
+CONST_SECTION									= "// Konstanten definieren"
+GLOBAL_SECTION									= "// Definiere globale Variablen"
+FUNC_SECTION									= "// Funktionen definieren"
+HEADER_SECTIONS									= [GUARD_SECTION, "// Dateiheader definieren", VERSION_SECTION, CONST_SECTION, GLOBAL_SECTION, FUNC_SECTION]
+TYPEDEF_NAME									= re.compile(r"//.*typedef", re.I)
 KEYWORDS										= {"if", "for", "while", "switch", "return", "sizeof", "else"}
 
 # CubeMX-Dateien: nur Bereiche zwischen USER CODE BEGIN/END pruefen
@@ -190,16 +213,22 @@ def checkCaseBlock (L, i, add):
 	if not LABEL.match(after):
 		return
 
-	body = [x for x in L[start + 1:end] if x.strip()]
+	body = [j for j in range(start + 1, end) if L[j].strip()]
 	if not body:
 		return
-	if FALLTHROUGH.match(body[-1]):
+
+	# Markierung im Kommentarblock am Ende des Blocks, die Begruendung darf ueber mehrere Zeilen gehen
+	k = len(body)
+	while k > 0 and L[body[k - 1]].strip().startswith("//"):
+		k -= 1
+	if any(FALLTHROUGH.match(L[j]) for j in body[k:]):
 		return
-	if FALLTHROUGH_LIKE.match(body[-1]):
-		add(end, "Fall-through-Markierung nicht '// fall through - <Begruendung>'", short(body[-1]))
+	like = next((j for j in body[k:] + body[-1:] if FALLTHROUGH_LIKE.match(L[j])), None)
+	if like is not None:
+		add(like + 1, "Fall-through-Markierung nicht '// fall through - <Begruendung>'", short(L[like]))
 		return
 
-	lastCode = next((stripCode(x) for x in reversed(body) if stripCode(x).strip()), "")
+	lastCode = next((stripCode(L[j]) for j in reversed(body) if stripCode(L[j]).strip()), "")
 	if TERMINATOR.match(lastCode):
 		return
 	add(i + 1, "case ohne break (Fall-through nicht markiert)", short(L[i]))
@@ -278,6 +307,30 @@ def checkDebugSymbols (L, pos, name, add):
 	add(pos[0] + 1, "Debug-Symbole", f"'#define DEBUG_{name}' innerhalb von '#ifdef DEBUG' fehlt")
 #-----------------------------------------------------------------------
 
+# Zeilenindizes der Typedef-Abschnitte (beschreibender Name mit "Typedef", danach Trennlinie)
+#-----------------------------------------------------------------------
+def typedefSections (L):
+	return [i for i, l in enumerate(L[:-1]) if TYPEDEF_NAME.match(l) and L[i + 1] == SEP]
+#-----------------------------------------------------------------------
+
+# Typedef-Abschnitt: mehrere Typdefinitionen nur durch eine Trennlinie getrennt, danach Leerzeile
+#-----------------------------------------------------------------------
+def checkTypedefSection (L, i, add):
+	name = sectionName(L[i])
+	j = i + 1
+	while True:
+		end = next((k for k in range(j + 1, len(L)) if L[k] == SEP), None)
+		if end is None:
+			add(i + 1, "Abschnitte", f"'{name}' ohne abschliessende Trennlinie")
+			return
+		if end + 1 < len(L) and L[end + 1].startswith("typedef"):
+			j = end
+			continue
+		if end + 1 < len(L) and L[end + 1].strip():
+			add(end + 2, "Abschnitte", f"keine Leerzeile nach Abschnitt '{name}'")
+		return
+#-----------------------------------------------------------------------
+
 # Positionen der bekannten Abschnitte fuer die Reihenfolgepruefung
 #-----------------------------------------------------------------------
 def orderAnchors (L, isHeader, guard, firstFunc):
@@ -299,14 +352,13 @@ def orderAnchors (L, isHeader, guard, firstFunc):
 	if isHeader:
 		first(lambda l: l == DEBUG_SECTION or DEBUG_NAME.match(l), 6, sectionName(DEBUG_SECTION))
 		first(lambda l: l == VERSION_SECTION, 7, sectionName(VERSION_SECTION))
-		first(lambda l: l == "// Konstanten definieren", 8, "Konstanten definieren")
+		first(lambda l: l == CONST_SECTION, 8, sectionName(CONST_SECTION))
 
 		# Typedef-Abschnitte haben beschreibende Namen, es zaehlen alle
-		for i, l in enumerate(L[:-1]):
-			if re.match(r"//.*typedef", l, re.I) and L[i + 1] == SEP:
-				anchors.append((i, 9, l[3:].strip()))
-		first(lambda l: l == "// Definiere globale Variablen", 10, "Definiere globale Variablen")
-		first(lambda l: l == "// Funktionen definieren", 11, "Funktionen definieren")
+		for i in typedefSections(L):
+			anchors.append((i, 9, sectionName(L[i])))
+		first(lambda l: l == GLOBAL_SECTION, 10, sectionName(GLOBAL_SECTION))
+		first(lambda l: l == FUNC_SECTION, 11, sectionName(FUNC_SECTION))
 		first(lambda l: l == f"#endif /* {guard} */", 12, "Abschluss")
 	else:
 		first(lambda l: l == VAR_SECTION, 6, sectionName(VAR_SECTION))
@@ -402,13 +454,22 @@ def checkFile (path, cNames=None, genHeaders=None, userCode=False):
 			if missing:
 				add(L.index(VERSION_SECTION) + 1, "Version", f"Versions-Defines fehlen: {', '.join(name + '_' + v for v in missing)}")
 		hasProto = any(re.match(r"^\w[\w\s\*]*\s\*?\w+\s*\(.*\)\s*;", l) for l in L)
-		if hasProto and "// Funktionen definieren" not in L:
+		if hasProto and FUNC_SECTION not in L:
 			add(0, "Header", "Abschnitt 'Funktionen definieren' fehlt")
 
 		d = os.path.dirname(os.path.abspath(path))
 		local = cBasenames(d) | cBasenames(os.path.join(os.path.dirname(d), "Src"))
 		if name.lower() in (cNames or set()) | local:
 			checkDebugSymbols(L, debugPos, name, add)
+		elif debugPos:
+			checkSectionForm(L, debugPos[0], SEP, add)
+
+		# Optionale Abschnitte mit festem Namen und Typedef-Abschnitte
+		for s in HEADER_SECTIONS:
+			if s in L:
+				checkSectionForm(L, L.index(s), SEP, add)
+		for i in typedefSections(L):
+			checkTypedefSection(L, i, add)
 	else:
 		checkVarSections(L, VAR_SECTION, VAR_INC_SECTION, "//", SEP, add)
 		if VERSION_SECTION in L:
@@ -478,7 +539,7 @@ def checkFile (path, cNames=None, genHeaders=None, userCode=False):
 			isIf = re.match(r"\s*(if|else)\b", code)
 			if nxt != "{" and not (isIf and re.match(r"return\b.*;$", nxt)):
 				add(n, "if/else/for ohne { }", short(l))
-		if re.match(r"\s*(if|for|while|switch)\(", code):
+		if re.search(r"\b(if|for|while|switch|return)\(", code):
 			add(n, "kein Leerzeichen nach Schluesselwort", short(l))
 
 		# Funktionsdefinition / Prototyp (nur am Zeilenanfang)
@@ -504,9 +565,9 @@ def checkFile (path, cNames=None, genHeaders=None, userCode=False):
 					add(n, "Funktion ohne Kommentar+Trennlinie davor", short(l))
 				checkFuncEnd(L, i, fm.group(1), add)
 
-		# Name eines #define in GROSSBUCHSTABEN
+		# Name eines #define in GROSSBUCHSTABEN, CubeMX-Pins (<NAME>_Pin, <NAME>_GPIO_Port) ausgenommen
 		nm = re.match(r"\s*#\s*define\s+(\w+)", code)
-		if nm and not re.fullmatch(r"[A-Z0-9_]+", nm.group(1)):
+		if nm and not re.fullmatch(r"[A-Z0-9_]+(_Pin|_Port)?", nm.group(1)):
 			add(n, "Define-Name nicht GROSSBUCHSTABEN", nm.group(1))
 
 		# Wert eines #define auf Spalte 49
@@ -587,6 +648,6 @@ def checkProject (base, files):
 # Hauptprogramm
 #-----------------------------------------------------------------------
 if __name__ == "__main__":
-	sys.exit(run(Language("C", "c", "C_CODING_STYLE.md", (".c", ".h"), VERSION_SECTION, DEFAULT_EXCLUDE,
+	sys.exit(run(Language("C", "c", "docs/C_CODING_STYLE.md", (".c", ".h"), VERSION_SECTION, DEFAULT_EXCLUDE,
 		"HAL/CMSIS-Dateien und Submodule mitpruefen, CubeMX-Dateien vollstaendig pruefen", checkProject, isGenerated)))
 #-----------------------------------------------------------------------

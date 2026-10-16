@@ -384,7 +384,7 @@ Kandidaten aus den Logging-Konzepten: Boot-ID als Log-ID, Config als A/B-Kopie i
 
 ## 10. Ordner-README
 
-Eine Ordner-README ist Pflicht, wenn ein Ordner mehrere ausführbare Werkzeuge oder mehr als 3 Dokumente enthält. Vorbild ist [tools/README.md](tools/README.md).
+Eine Ordner-README ist Pflicht, wenn ein Ordner mehrere ausführbare Werkzeuge oder mehr als 3 Dokumente enthält. Vorbild ist [tools/README.md](../tools/README.md).
 
 - **Inhalt:** ein Satz zum Zweck, dann eine Tabelle `Datei` / `Inhalt`.
 - **Bei Werkzeugen zusätzlich:** Aufruf mit Beispielen, Optionen, Rückgabewerte und Einstellungsdateien.
