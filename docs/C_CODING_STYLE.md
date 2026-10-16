@@ -37,9 +37,26 @@ Jeder Abschnitt einer Datei hat immer dieselbe Form:
 ```
 
 - Zwischen zwei Abschnitten steht genau **eine Leerzeile**.
-- Die Include-Abschnitte (und in `.c`-Dateien `Variablen definieren`) werden **immer** angelegt, auch wenn sie leer sind (dann steht eine Leerzeile zwischen den Linien).
-- Mehrere Typdefinitionen innerhalb eines Abschnitts werden nur durch eine Trennlinie getrennt (ohne Leerzeile), die naechste Zeile beginnt mit `typedef`. Andere Abschnitte (z. B. eine Untergruppe in `Konstanten definieren` mit eigener Ueberschrift) sind eigene Abschnitte mit Leerzeile davor.
+- Die Include-Abschnitte werden **immer** angelegt, auch wenn sie leer sind (dann steht eine Leerzeile zwischen den Linien). Alle anderen Abschnitte stehen nur dort, wo sie Inhalt haben.
+- Ein Abschnitt endet erst an einer Trennlinie, auf die eine Leerzeile folgt. Die Leerzeile trennt Abschnitte, die Trennlinie allein trennt Bloecke innerhalb eines Abschnitts.
+- Mehrere Typdefinitionen innerhalb eines Abschnitts werden nur durch eine Trennlinie getrennt (ohne Leerzeile), die naechste Zeile beginnt mit `typedef` oder mit einem Kommentar zur Typdefinition.
+- **Unterabschnitte**: Ein Abschnitt darf in benannte Bloecke geteilt werden. Der Unterabschnitt folgt direkt auf die schliessende Trennlinie, ohne Leerzeile, und hat dieselbe Form wie ein Abschnitt. Er gehoert zum Abschnitt davor, z. B. zaehlen Variablen darin als in `Variablen definieren` stehend. Eine Beschreibung zum Unterabschnitt steht als Kommentar im Block, nicht zwischen zwei weiteren Trennlinien.
+- Abschnitte mit festem Namen (z. B. `Variablen einbinden`, `Konstanten definieren`) und Funktionen sind nie Unterabschnitte, vor ihnen steht immer eine Leerzeile.
 - Die Form wird fuer alle Abschnitte mit festem Namen und fuer die Typedef-Abschnitte geprueft.
+
+```c
+// Variablen definieren
+//----------------------------------------------------------------------
+static uint8_t zaehler = 0;													// Interner Zaehler
+//----------------------------------------------------------------------
+// Definiere Zellenarray Spannungen
+//----------------------------------------------------------------------
+// Werte je Modul
+uint16_t cellvoltage[LTC6811_DEVICES][LTC6811_CELLS] = {0};					// Gemessene Zellspannungen
+//----------------------------------------------------------------------
+
+// Initialisiere Beispiel
+```
 
 ---
 
@@ -76,14 +93,14 @@ Reihenfolge der Abschnitte (Pflicht, fett = immer vorhanden):
 5. **Einfuegen der STM Include-Dateien** – `"main.h"`, `"can.h"`, …
 6. **Einfuegen der eigenen Include-Dateien**
 7. Definiere Debug-Symbole – `DEBUG_<NAME>` innerhalb von `#ifdef DEBUG` (gleicher Name fuer ein oder mehrere Symbole). **Pflicht, wenn eine gleichnamige `.c`-Datei existiert** (`canbus.h` + `canbus.c` → `DEBUG_CANBUS`); ein auskommentiertes Symbol zaehlt als vorhanden
-8. Version definieren – `<NAME>_MAJOR`, `_MINOR`, `_PATCH`, `_DEV`. Steht **genau einmal im Repository**, in einem Header (siehe unten)
-9. Konstanten definieren
-10. Typedefs (Abschnittsname beschreibend, z. B. `Typedefines definieren`, `Definiere Statemaschine Typedefines`)
+8. Version definieren – `<NAME>_MAJOR`, `_MINOR`, `_PATCH`, `_DEV`. Steht **genau einmal im Repository**, in einem Header (siehe unten). Einziger `#define`-Abschnitt vor den Typedefs
+9. Typedefs (Abschnittsname beschreibend, z. B. `Typedefines definieren`, `Definiere Statemaschine Typedefines`)
+10. Konstanten definieren – weitere `#define`-Abschnitte mit eigener Ueberschrift stehen hier
 11. Definiere globale Variablen (`extern`)
-12. **Funktionen definieren** – Prototypen
+12. Funktionen definieren – Prototypen
 13. **Abschluss** – `#endif /* INC_<NAME>_H_ */` + Trennlinie
 
-Die Reihenfolge wird geprueft; optionale Abschnitte duerfen fehlen, die vorhandenen muessen aber in dieser Reihenfolge stehen. Typedef-Abschnitte werden an `Typedef` im Namen erkannt.
+Die Abschnitte 7 bis 12 sind optional. Die Reihenfolge wird geprueft; fehlende Abschnitte sind erlaubt, die vorhandenen muessen aber in dieser Reihenfolge stehen. Typedef-Abschnitte werden an `Typedef` im Namen erkannt. Stehen Prototypen im Header, gehoeren sie in `Funktionen definieren`.
 
 `<NAME>` ist der Dateiname in Grossbuchstaben ohne Endung (`canbus.h` → `INC_CANBUS_H_`, `CANBUS_MAJOR`, `DEBUG_CANBUS`).
 
@@ -145,11 +162,6 @@ Innerhalb von `#ifdef` / `#endif` wird mit einem Tab eingerueckt. Nicht benoetig
 #define BEISPIEL_DEV							1
 //----------------------------------------------------------------------
 
-// Konstanten definieren
-//----------------------------------------------------------------------
-#define TIMEOUT									1000						// Timeout in ms
-//----------------------------------------------------------------------
-
 // Definiere Beispiel Typedefines
 //----------------------------------------------------------------------
 typedef enum
@@ -177,6 +189,11 @@ typedef union
 } beispielStatus;
 //----------------------------------------------------------------------
 
+// Konstanten definieren
+//----------------------------------------------------------------------
+#define TIMEOUT									1000						// Timeout in ms
+//----------------------------------------------------------------------
+
 // Definiere globale Variablen
 //----------------------------------------------------------------------
 extern Beispiel_TypeDef Main_Beispiel;										// Globale Beispiel-Variable
@@ -202,11 +219,27 @@ Reihenfolge der Abschnitte:
 2. **Einfuegen der standard Include-Dateien**
 3. **Einfuegen der STM Include-Dateien**
 4. **Einfuegen der eigenen Include-Dateien** – der eigene Header steht hier
-5. **Variablen definieren** – globale und `static` Variablen (immer vorhanden, auch wenn leer)
-6. Variablen einbinden – optional, z. B. fuer Variablen, die im Header global (`extern`) bekannt gemacht werden; wird nur auf Schreibweise und Abschnittsform geprueft
+5. Variablen definieren – optional, Variablen nur fuer diese Datei (`static`)
+6. Variablen einbinden – optional, globale (externe) Variablen: die im Header mit `extern` bekannt gemachten Variablen bzw. `extern`-Verweise auf Variablen anderer Dateien
 7. Funktionen – jede Funktion als eigener Abschnitt
 
 Die Reihenfolge wird geprueft (die erste Funktionsdefinition muss nach den Variablen-Abschnitten stehen).
+
+### Variablen und Typedefs
+
+- In einer `.c`-Datei werden **keine Typedefs** definiert, sie gehoeren in den Header.
+- Variablen auf Dateiebene stehen **nur** in `Variablen definieren` oder `Variablen einbinden`, nicht in eigenen Abschnitten. Zur Gliederung (z. B. `Definiere Zellenarray Spannungen`) dienen [Unterabschnitte](#abschnitte).
+- Empfohlen (nicht Pflicht, wird nicht geprueft): Jede Variable bekommt einen Zeilenkommentar, wofuer sie da ist (Spalte 77, siehe [Kommentare](#kommentare)). Bei mehrzeiligen Initialisierungen steht der Kommentar in der ersten Zeile.
+
+```c
+static uint8_t zaehler = 0;													// Interner Zaehler
+const uint8_t tabelle[] =													// Umrechnungstabelle
+{
+	1, 2, 3,
+};
+```
+
+In von STM32CubeMX erzeugten Dateien werden Typedefs und Variablen-Abschnitte nicht geprueft.
 
 ### Includes
 
@@ -274,8 +307,12 @@ uint32_t GetPage (uint32_t address)
 
 // Variablen definieren
 //----------------------------------------------------------------------
-Beispiel_TypeDef Main_Beispiel;												// Globale Beispiel-Variable
 static uint8_t zaehler = 0;													// Interner Zaehler
+//----------------------------------------------------------------------
+
+// Variablen einbinden
+//----------------------------------------------------------------------
+Beispiel_TypeDef Main_Beispiel;												// Globale Beispiel-Variable
 //----------------------------------------------------------------------
 
 // Initialisiere Beispiel
@@ -486,7 +523,8 @@ Das Skript [tools/c_stylecheck.py](../tools/c_stylecheck.py) prueft C-Dateien ge
 - [ ] Dateikopf vollstaendig (Titel, Sprache, Datum, Autor, Projekt, Quelle), ohne Version
 - [ ] Alle Pflichtabschnitte vorhanden und in der richtigen Reihenfolge
 - [ ] Leere Include-Abschnitte trotzdem angelegt
-- [ ] `.c`: Abschnitt `Variablen definieren` vorhanden (auch wenn leer)
+- [ ] `.c`: keine Typedefs, Variablen nur in `Variablen definieren` / `Variablen einbinden`, moeglichst mit Kommentar
+- [ ] `.h`: Typedefs nach `Version definieren`, vor allen anderen Defines
 - [ ] `.h`: `#pragma once` **und** Include-Guard `INC_<NAME>_H_`
 - [ ] Versions-Defines genau einmal im Repository, in einem Header
 - [ ] Jede Funktion mit Beschreibungskommentar und Trennlinien

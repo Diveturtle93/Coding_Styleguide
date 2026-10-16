@@ -66,7 +66,7 @@ Git-Submodule aus der `.gitmodules` des Projekts und der Ordner `.git` werden im
 
 - Ordner `Drivers`, `Middlewares`, `CMSIS` (HAL, CMSIS, Middleware von ST) sowie `Debug`, `Release` und `build` (Build-Ausgaben).
 - Dateien `stm32*_hal*` (ausser `stm32*_hal_msp.c`), `system_stm32*`, `startup_*`, `syscalls.c` und `sysmem.c`.
-- Von STM32CubeMX generierte Dateien (z. B. unter `Core/`) werden nur zwischen `/* USER CODE BEGIN ... */` und `/* USER CODE END ... */` geprueft. Der Bereich `Header` (ST-Lizenzkopf) und die Pruefungen der Dateistruktur (Kopfblock, Abschnitte, Header, Debug-Symbole, Reihenfolge, Include-Abschnitte) entfallen, fehlerhafte Marker werden gemeldet. Im Report sind diese Dateien mit `nur USER CODE` gekennzeichnet.
+- Von STM32CubeMX generierte Dateien (z. B. unter `Core/`) werden nur zwischen `/* USER CODE BEGIN ... */` und `/* USER CODE END ... */` geprueft. Der Bereich `Header` (ST-Lizenzkopf) und die Pruefungen der Dateistruktur (Kopfblock, Abschnitte, Header, Debug-Symbole, Reihenfolge, Include-Abschnitte, Typedefs und Variablen ausserhalb der Variablen-Abschnitte) entfallen, fehlerhafte Marker werden gemeldet. Im Report sind diese Dateien mit `nur USER CODE` gekennzeichnet.
 
 **Python**
 

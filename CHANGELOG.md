@@ -16,6 +16,8 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 - Beide Stylechecks melden mehr als eine Leerzeile zwischen zwei Abschnitten.
 - C und Python Coding Style: Regeln für das Leerzeichen nach `//` und für leere Kommentarzeilen; C: Zuordnung der Includes zu den Abschnitten.
 - C-Stylecheck prüft die Form aller Header-Abschnitte mit festem Namen (z. B. `Konstanten definieren`, `Version definieren`) und der Typedef-Abschnitte, wie Python bei Konstanten und Klassen.
+- C-Stylecheck meldet in `.c`-Dateien Typedefs, und Variablen außerhalb von `Variablen definieren` / `Variablen einbinden`.
+- C Coding Style: Unterabschnitte. Ein Abschnitt darf in benannte Blöcke geteilt werden, die nur durch eine Trennlinie getrennt sind. Der C-Stylecheck meldet dafür keine fehlende Leerzeile mehr und zählt Variablen darin zum übergeordneten Variablen-Abschnitt.
 - Python-Stylecheck meldet `from`-Importe mit mehr als 5 Namen, die nicht einen Namen pro Zeile haben.
 - `.stylecheck`: Der Abschnitt `[doc]` für das geplante `doc_check.py` erzeugt keine Warnung mehr.
 
@@ -29,6 +31,8 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 - C-Stylecheck: Als Fall-through-Markierung zählt nur noch `// fall through - <Begruendung>`, andere Schreibweisen werden gemeldet.
 - Die Styleguides liegen jetzt in `docs/` (`docs/C_CODING_STYLE.md`, `docs/PYTHON_CODING_STYLE.md`, `docs/DOCUMENTATION_STYLE.md`), wie es der Documentation Style für Fachdokumente verlangt.
 - Leerzeichen vor `(` nach Schlüsselwörtern: Python prüft alle Schlüsselwörter (z. B. auch `return (`, `with (`), C zusätzlich `return (`.
+- C-Header: Die Typedef-Abschnitte stehen jetzt nach `Version definieren` und vor `Konstanten definieren`. `Funktionen definieren` ist optional.
+- C-Quelldateien: `Variablen definieren` ist optional.
 - Python Coding Style begründet, warum der Debug-Abschnitt anders als in C in jedem Modul Pflicht ist.
 
 ### Behoben

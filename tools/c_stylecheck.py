@@ -42,7 +42,8 @@
 #
 # Von STM32CubeMX generierte Dateien ("USER CODE BEGIN") werden nur zwischen
 # USER CODE BEGIN und USER CODE END geprueft, ohne den Bereich "Header" und ohne
-# Pruefungen der Dateistruktur (Kopfblock, Abschnitte, Header, Debug-Symbole, Reihenfolge, Include-Abschnitte).
+# Pruefungen der Dateistruktur (Kopfblock, Abschnitte, Header, Debug-Symbole, Reihenfolge, Include-Abschnitte,
+# Typedefs und Variablen ausserhalb der Variablen-Abschnitte).
 #
 # Projekt-Einstellungen (optional): Datei .stylecheck im Projektordner (gemeinsam mit py_stylecheck.py)
 #   [stylecheck]                  -> gilt fuer C und Python
@@ -84,6 +85,7 @@ from stylecheck_common import (
 	debugSections,
 	readLines,
 	run,
+	sectionEnd,
 	sectionName,
 	short,
 	tabcol,
@@ -126,6 +128,8 @@ GLOBAL_SECTION									= "// Definiere globale Variablen"
 FUNC_SECTION									= "// Funktionen definieren"
 HEADER_SECTIONS									= [GUARD_SECTION, "// Dateiheader definieren", VERSION_SECTION, CONST_SECTION, GLOBAL_SECTION, FUNC_SECTION]
 TYPEDEF_NAME									= re.compile(r"//.*typedef", re.I)
+FIXED_SECTIONS									= set(INC_SECTIONS + HEADER_SECTIONS + [DEBUG_SECTION, VAR_SECTION, VAR_INC_SECTION])
+FUNC_HEAD										= re.compile(r"^(?!typedef|#|return|else|static inline)[A-Za-z_][\w\s\*]*?\b([A-Za-z_]\w*)(\s*)\((.*)\)\s*(;)?\s*$")
 KEYWORDS										= {"if", "for", "while", "switch", "return", "sizeof", "else"}
 
 # CubeMX-Dateien: nur Bereiche zwischen USER CODE BEGIN/END pruefen
@@ -140,7 +144,8 @@ STD_HEADER										= re.compile(r"^(assert|complex|ctype|errno|fenv|float|intty
 STM_HEADER										= re.compile(r"^(main|stm32\w*|core_cm\w*|cmsis\w*|adc|can|crc|dac|dcmi|dma|dma2d|eth|fatfs|fmc|fsmc|gpio|i2c|i2s|iwdg|lptim|ltdc|quadspi|rng|rtc|sai|sdio|sdmmc|spi|tim|uart|usart|usb_device|usb_host|usbd_\w+|wwdg)\.h$", re.I)
 
 # Pruefungen der Dateistruktur, im USER-CODE-Modus nicht sinnvoll
-FILE_CATS										= {"Kopfblock", "Abschnitte", "Header", "Debug-Symbole", "Reihenfolge", "Include im falschen Abschnitt", "Include ausserhalb der Include-Abschnitte"}
+FILE_CATS										= {"Kopfblock", "Abschnitte", "Header", "Debug-Symbole", "Reihenfolge", "Include im falschen Abschnitt", "Include ausserhalb der Include-Abschnitte",
+													"Typedef in .c-Datei", "Variable ausserhalb der Variablen-Abschnitte"}
 
 # switch/case: Fall-through-Markierung (FALLTHROUGH_LIKE: abweichend geschrieben), Blockende, case-Marke
 FALLTHROUGH										= re.compile(r"^\s*// fall through - \S.*$")
@@ -294,8 +299,8 @@ def checkDebugSymbols (L, pos, name, add):
 		add(0, "Debug-Symbole", f"Abschnitt '{sectionName(DEBUG_SECTION)}' fehlt (passende .c-Datei vorhanden)")
 		return
 
-	checkSectionForm(L, pos[0], SEP, add)
-	sym = re.compile(rf"^(//)?\s*#define\s+DEBUG_{name}\b")
+	checkSectionForm(L, pos[0], SEP, add, subsection)
+	sym =re.compile(rf"^(//)?\s*#define\s+DEBUG_{name}\b")
 	inIfdef = False
 	for l in L[pos[0] + 1:]:
 		if re.match(r"#ifdef\s+DEBUG\b", l):
@@ -313,22 +318,74 @@ def typedefSections (L):
 	return [i for i, l in enumerate(L[:-1]) if TYPEDEF_NAME.match(l) and L[i + 1] == SEP]
 #-----------------------------------------------------------------------
 
-# Typedef-Abschnitt: mehrere Typdefinitionen nur durch eine Trennlinie getrennt, danach Leerzeile
+# Block ab Zeile j ist eine Funktion (#if / #ifdef davor erlaubt)
 #-----------------------------------------------------------------------
-def checkTypedefSection (L, i, add):
-	name = sectionName(L[i])
-	j = i + 1
-	while True:
-		end = next((k for k in range(j + 1, len(L)) if L[k] == SEP), None)
-		if end is None:
-			add(i + 1, "Abschnitte", f"'{name}' ohne abschliessende Trennlinie")
-			return
-		if end + 1 < len(L) and L[end + 1].startswith("typedef"):
-			j = end
+def isFuncBlock (L, j):
+	while j < len(L) and re.match(r"\s*#\s*(if|ifdef|ifndef|elif)\b", L[j]):
+		j += 1
+	if j >= len(L):
+		return False
+	fm = FUNC_HEAD.match(stripCode(L[j]))
+	return bool(fm) and fm.group(1) not in KEYWORDS and fm.group(4) is None and nextCodeLine(L, j).strip() == "{"
+#-----------------------------------------------------------------------
+
+# Unterabschnitt: Zeile k direkt nach einer schliessenden Trennlinie setzt den Abschnitt fort
+# - "typedef" (weitere Typdefinition, Kommentarzeilen davor erlaubt) oder
+# - "// <Name>" mit Trennlinie danach, kein Abschnitt mit festem Namen und keine Funktion
+# Rueckgabe: Zeilenindex der oeffnenden Trennlinie des Unterabschnitts, sonst None
+#-----------------------------------------------------------------------
+def subsection (L, k):
+	j = k
+	while j < len(L) and L[j].startswith("//") and L[j] != SEP:
+		j += 1
+	if j < len(L) and L[j].startswith("typedef"):
+		return k - 1
+	if k + 1 < len(L) and L[k + 1] == SEP and re.match(r"// \S", L[k]) and L[k] != SEP \
+			and L[k] not in FIXED_SECTIONS and not isFuncBlock(L, k + 2):
+		return k + 1
+	return None
+#-----------------------------------------------------------------------
+
+# .c-Datei: keine Typedefs, Variablen auf Dateiebene nur in den Variablen-Abschnitten
+#-----------------------------------------------------------------------
+def checkCVariables (L, add):
+	# Zeilen innerhalb der Variablen-Abschnitte, inkl. Unterabschnitte
+	allowed = set()
+	for i, l in enumerate(L):
+		if l in (VAR_SECTION, VAR_INC_SECTION) and i + 1 < len(L) and L[i + 1] == SEP:
+			end = sectionEnd(L, i + 1, SEP, subsection)
+			allowed.update(range(i + 2, len(L) if end is None else end))
+
+	depth = 0
+	inBlock = False
+	for i, l in enumerate(L):
+		# /* */-Kommentare (CubeMX) ueberspringen
+		if inBlock:
+			inBlock = "*/" not in l
 			continue
-		if end + 1 < len(L) and L[end + 1].strip():
-			add(end + 2, "Abschnitte", f"keine Leerzeile nach Abschnitt '{name}'")
-		return
+		code = re.sub(r"/\*.*?\*/", "", stripCode(l))
+		if "/*" in code:
+			inBlock = True
+			code = code[:code.index("/*")]
+
+		atTop = depth == 0
+		depth += code.count("{") - code.count("}")
+		s = code.strip()
+		if not atTop or not s or s.startswith("#") or (i > 0 and L[i - 1].rstrip().endswith("\\")):
+			continue
+
+		if re.match(r"typedef\b", s):
+			add(i + 1, "Typedef in .c-Datei", short(l))
+			continue
+
+		# Variable: Typ und Name, danach '=' oder ';', vor dem '=' keine Klammern
+		head = s.split("=", 1)[0]
+		if not re.match(r"[A-Za-z_][\w\s\*]*?[\s\*]\**[A-Za-z_]\w*\s*(\[[^\]]*\]\s*)*;?$", head):
+			continue
+		if "=" not in s and not s.endswith(";"):
+			continue
+		if i not in allowed:
+			add(i + 1, "Variable ausserhalb der Variablen-Abschnitte", short(l))
 #-----------------------------------------------------------------------
 
 # Positionen der bekannten Abschnitte fuer die Reihenfolgepruefung
@@ -352,11 +409,11 @@ def orderAnchors (L, isHeader, guard, firstFunc):
 	if isHeader:
 		first(lambda l: l == DEBUG_SECTION or DEBUG_NAME.match(l), 6, sectionName(DEBUG_SECTION))
 		first(lambda l: l == VERSION_SECTION, 7, sectionName(VERSION_SECTION))
-		first(lambda l: l == CONST_SECTION, 8, sectionName(CONST_SECTION))
 
 		# Typedef-Abschnitte haben beschreibende Namen, es zaehlen alle
 		for i in typedefSections(L):
-			anchors.append((i, 9, sectionName(L[i])))
+			anchors.append((i, 8, sectionName(L[i])))
+		first(lambda l: l == CONST_SECTION, 9, sectionName(CONST_SECTION))
 		first(lambda l: l == GLOBAL_SECTION, 10, sectionName(GLOBAL_SECTION))
 		first(lambda l: l == FUNC_SECTION, 11, sectionName(FUNC_SECTION))
 		first(lambda l: l == f"#endif /* {guard} */", 12, "Abschluss")
@@ -425,7 +482,7 @@ def checkFile (path, cNames=None, genHeaders=None, userCode=False):
 	name = os.path.splitext(fname)[0].upper()
 
 	checkHead(L, fname, "//", SEP, "C", add)
-	checkRequiredSections(L, INC_SECTIONS, "// Einfuegen", SEP, add)
+	checkRequiredSections(L, INC_SECTIONS, "// Einfuegen", SEP, add, subsection)
 	checkIncludes(L, genHeaders or set(), add)
 	checkBlankLines(L, SEP, add)
 
@@ -462,16 +519,18 @@ def checkFile (path, cNames=None, genHeaders=None, userCode=False):
 		if name.lower() in (cNames or set()) | local:
 			checkDebugSymbols(L, debugPos, name, add)
 		elif debugPos:
-			checkSectionForm(L, debugPos[0], SEP, add)
+			checkSectionForm(L, debugPos[0], SEP, add, subsection)
 
-		# Optionale Abschnitte mit festem Namen und Typedef-Abschnitte
+		# Optionale Abschnitte mit festem Namen und Typedef-Abschnitte (ohne die Unterabschnitte)
 		for s in HEADER_SECTIONS:
 			if s in L:
-				checkSectionForm(L, L.index(s), SEP, add)
+				checkSectionForm(L, L.index(s), SEP, add, subsection)
 		for i in typedefSections(L):
-			checkTypedefSection(L, i, add)
+			if not (i > 0 and L[i - 1] == SEP):
+				checkSectionForm(L, i, SEP, add, subsection)
 	else:
-		checkVarSections(L, VAR_SECTION, VAR_INC_SECTION, "//", SEP, add)
+		checkVarSections(L, VAR_SECTION, VAR_INC_SECTION, "//", SEP, add, required=False, cont=subsection)
+		checkCVariables(L, add)
 		if VERSION_SECTION in L:
 			add(L.index(VERSION_SECTION) + 1, "Version", f"Abschnitt '{sectionName(VERSION_SECTION)}' gehoert in eine .h-Datei")
 
@@ -543,7 +602,7 @@ def checkFile (path, cNames=None, genHeaders=None, userCode=False):
 			add(n, "kein Leerzeichen nach Schluesselwort", short(l))
 
 		# Funktionsdefinition / Prototyp (nur am Zeilenanfang)
-		fm = re.match(r"^(?!typedef|#|return|else|static inline)[A-Za-z_][\w\s\*]*?\b([A-Za-z_]\w*)(\s*)\((.*)\)\s*(;)?\s*$", code)
+		fm = FUNC_HEAD.match(code)
 		if fm and fm.group(1) not in KEYWORDS:
 			isDef = fm.group(4) is None and nextCodeLine(L, i).strip() == "{"
 			isProto = fm.group(4) == ";"

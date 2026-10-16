@@ -177,15 +177,32 @@ def checkHead (L, fname, cmt, sep, language, add):
 			add(i + 1, "Kopfblock", f"'Version' gehoert nicht mehr in den Kopfblock: {short(l)}")
 #-----------------------------------------------------------------------
 
-# Abschnittsform: Name, Trennlinie, Inhalt, Trennlinie, danach Leerzeile oder Dateiende
+# Zeilenindex der schliessenden Trennlinie eines Abschnitts, None = nicht gefunden
+# i: Zeile der oeffnenden Trennlinie
+# cont(L, k): prueft, ob Zeile k direkt nach einer Trennlinie den Abschnitt fortsetzt (Unterabschnitt)
+# Rueckgabe von cont: Zeilenindex der oeffnenden Trennlinie des naechsten Blocks, sonst None
 #-----------------------------------------------------------------------
-def checkSectionForm (L, i, sep, add):
+def sectionEnd (L, i, sep, cont=None):
+	while True:
+		end = next((j for j in range(i + 1, len(L)) if L[j] == sep), None)
+		if end is None or not cont or end + 1 >= len(L):
+			return end
+		nxt = cont(L, end + 1)
+		if nxt is None:
+			return end
+		i = nxt
+#-----------------------------------------------------------------------
+
+# Abschnittsform: Name, Trennlinie, Inhalt, Trennlinie, danach Leerzeile oder Dateiende
+# cont: Unterabschnitte erkennen (siehe sectionEnd)
+#-----------------------------------------------------------------------
+def checkSectionForm (L, i, sep, add, cont=None):
 	name = sectionName(L[i])
 	if i + 1 >= len(L) or L[i + 1] != sep:
 		add(i + 1, "Abschnitte", f"'{name}' ohne Trennlinie danach")
 		return
 
-	end = next((j for j in range(i + 2, len(L)) if L[j] == sep), None)
+	end = sectionEnd(L, i + 1, sep, cont)
 	if end is None:
 		add(i + 1, "Abschnitte", f"'{name}' ohne abschliessende Trennlinie")
 	elif end + 1 < len(L) and L[end + 1].strip():
@@ -202,8 +219,9 @@ def checkBlankLines (L, sep, add):
 
 # Pflichtabschnitte (Include- bzw. Import-Abschnitte): vorhanden, nicht doppelt, Abschnittsform
 # similar: Anfang abweichend geschriebener Abschnittsnamen ("// Einfuegen" bzw. "# Einfuegen")
+# cont: Unterabschnitte erkennen (siehe sectionEnd)
 #-----------------------------------------------------------------------
-def checkRequiredSections (L, sections, similar, sep, add):
+def checkRequiredSections (L, sections, similar, sep, add, cont=None):
 	for s in sections:
 		pos = [i for i, l in enumerate(L) if l == s]
 		if not pos:
@@ -212,12 +230,13 @@ def checkRequiredSections (L, sections, similar, sep, add):
 		for i in pos[1:]:
 			add(i + 1, "Abschnitte", f"doppelt: '{sectionName(s)}'")
 		for i in pos:
-			checkSectionForm(L, i, sep, add)
+			checkSectionForm(L, i, sep, add, cont)
 #-----------------------------------------------------------------------
 
-# "Variablen definieren" ist Pflicht, "Variablen einbinden" optional (Schreibweise + Form)
+# "Variablen definieren" ist Pflicht (required=False: optional), "Variablen einbinden" optional (Schreibweise + Form)
+# cont: Unterabschnitte erkennen (siehe sectionEnd)
 #-----------------------------------------------------------------------
-def checkVarSections (L, varSection, varIncSection, cmt, sep, add):
+def checkVarSections (L, varSection, varIncSection, cmt, sep, add, required=True, cont=None):
 	var = [(i, l) for i, l in enumerate(L) if re.match(rf"{cmt}\s*Variable", l, re.I)]
 	defs = [i for i, l in var if l == varSection]
 	incs = [i for i, l in var if l == varIncSection]
@@ -228,13 +247,13 @@ def checkVarSections (L, varSection, varIncSection, cmt, sep, add):
 		other = [i for i, l in var if l != varIncSection]
 		if other:
 			add(other[0] + 1, "Abschnitte", f"Variablen-Abschnitt heisst '{L[other[0]].strip()}' statt '{sectionName(varSection)}'")
-		else:
+		elif required:
 			add(0, "Abschnitte", f"fehlt: '{sectionName(varSection)}'")
 	for sec, pos in ((varSection, defs), (varIncSection, incs)):
 		for i in pos[1:]:
 			add(i + 1, "Abschnitte", f"doppelt: '{sectionName(sec)}'")
 		for i in pos:
-			checkSectionForm(L, i, sep, add)
+			checkSectionForm(L, i, sep, add, cont)
 #-----------------------------------------------------------------------
 
 # Debug-Abschnitt suchen und falsche Namen melden, Rueckgabe: Zeilenindizes aller Debug-Abschnitte
