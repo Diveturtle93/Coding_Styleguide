@@ -10,7 +10,7 @@
 
 # Beschreibung
 #-----------------------------------------------------------------------
-# Gemeinsam genutzter Code von c_stylecheck.py und py_stylecheck.py:
+# Gemeinsam genutzter Code von c_stylecheck.py, py_stylecheck.py und doc_check.py:
 # Befunde, Einlesen, Pruefungen von Kopfblock und Abschnitten, Reihenfolge,
 # Projekt-Einstellungen (.stylecheck), Kommandozeile, Reports und Uebersicht
 #-----------------------------------------------------------------------
@@ -55,6 +55,7 @@ STYLECHECK_COMMON_DEV							= 1
 CONFIG_FILE										= ".stylecheck"				# Projekt-Einstellungen (C und Python)
 CONFIG_SECTIONS									= ("stylecheck", "c", "py", "doc")	# [stylecheck] gilt fuer beide Sprachen, [doc] fuer doc_check.py
 LEGACY_CONFIG_FILES								= (".c_stylecheck", ".py_stylecheck")	# alte Dateinamen, nur noch Warnung
+EXCLUDED_REPOS									= ("Diveturtle93",)			# Repos, die von keinem Check geprueft werden (GitHub-Profil)
 TAB_WIDTH										= 4							# Tabbreite
 COMMENT_COL										= 77						# Spalte der Zeilenkommentare
 HEAD_COL										= 13						# Spalte des : im Kopfblock
@@ -76,14 +77,18 @@ class Issue:
 
 # Beschreibung einer Sprache fuer run()
 # name, key, rules, exts: Anzeigename, Abschnitt in .stylecheck und Report-Unterordner, Regeln, Dateiendungen
-# versionSection: Zeile des Abschnitts 'Version definieren', der genau einmal im Projekt steht
+# versionSection: Zeile des Abschnitts 'Version definieren', der genau einmal im Projekt steht, None = nicht pruefen
 # defaultExclude, excludeHelp: automatische Ausschluesse (Regex) und Hilfetext zu --no-default-exclude
 # checkProject: (Basisordner, [(Datei, nur USER CODE)]) -> [(Datei, [Issue])]
 # isGenerated: (Datei) -> nur USER CODE pruefen, None = keine generierten Dateien
+# checkWhole: (Basisordner, [(Datei, nur USER CODE)], Ergebnis von checkProject) -> [Issue] fuer das ganze Projekt
+# allDirs: jeder angegebene Ordner ist ein Projekt, auch ohne passende Dateien
+# configKeys: erlaubte Eintraege im eigenen Abschnitt der .stylecheck
 #-----------------------------------------------------------------------
 class Language:
 	# Sprache anlegen
-	def __init__ (self, name, key, rules, exts, versionSection, defaultExclude, excludeHelp, checkProject, isGenerated=None):
+	def __init__ (self, name, key, rules, exts, versionSection, defaultExclude, excludeHelp, checkProject, isGenerated=None,
+			checkWhole=None, allDirs=False, configKeys=("exclude", "include")):
 		self.name = name
 		self.key = key
 		self.rules = rules
@@ -93,6 +98,9 @@ class Language:
 		self.excludeHelp = excludeHelp
 		self.checkProject = checkProject
 		self.isGenerated = isGenerated
+		self.checkWhole = checkWhole
+		self.allDirs = allDirs
+		self.configKeys = configKeys
 #-----------------------------------------------------------------------
 
 # Variablen definieren
@@ -312,9 +320,10 @@ def normDir (d):
 
 # Projekt-Einstellungen: ([auszuschliessende Ordner], [zu pruefende Ordner]), relativ zum Projekt
 # submodules: Pfade aus .gitmodules ausschliessen
-# lang: Sprachabschnitt der Einstellungsdatei ("c" oder "py"), ergaenzt [stylecheck]
+# lang: Sprachabschnitt der Einstellungsdatei ("c", "py" oder "doc"), ergaenzt [stylecheck]
+# keys: erlaubte Eintraege im Sprachabschnitt, warn: Warnungen ausgeben (False bei wiederholtem Lesen)
 #-----------------------------------------------------------------------
-def projectSettings (base, submodules, lang):
+def projectSettings (base, submodules, lang, keys=("exclude", "include"), warn=True):
 	excl = []
 	incl = []
 	gitmodules = os.path.join(base, ".gitmodules")
@@ -323,7 +332,7 @@ def projectSettings (base, submodules, lang):
 			excl += [m.group(1) for m in re.finditer(r"^\s*path\s*=\s*(.+?)\s*$", f.read(), re.M)]
 
 	for old in LEGACY_CONFIG_FILES:
-		if os.path.isfile(os.path.join(base, old)):
+		if warn and os.path.isfile(os.path.join(base, old)):
 			print(f"Warnung: {os.path.join(base, old)} wird nicht mehr gelesen, Einstellungen nach {CONFIG_FILE} verschieben", file=sys.stderr)
 
 	cfgPath = os.path.join(base, CONFIG_FILE)
@@ -331,14 +340,14 @@ def projectSettings (base, submodules, lang):
 		cfg = configparser.ConfigParser(inline_comment_prefixes=("#", ";"))
 		cfg.read(cfgPath, encoding="utf-8-sig")								# BOM von Windows-Editoren erlauben
 		for name in cfg.sections():
-			if name not in CONFIG_SECTIONS:
+			if warn and name not in CONFIG_SECTIONS:
 				print(f"Warnung: {cfgPath}: unbekannter Abschnitt '[{name}]'", file=sys.stderr)
 		for name in ("stylecheck", lang):
 			if not cfg.has_section(name):
 				continue
 			sec = cfg[name]
 			for k in sec:
-				if k not in ("exclude", "include"):
+				if warn and k not in (keys if name == lang else ("exclude", "include")):
 					print(f"Warnung: {cfgPath}: unbekannter Eintrag '{k}' in [{name}]", file=sys.stderr)
 			excl += sec.get("exclude", "").split(",")
 			incl += sec.get("include", "").split(",")
@@ -366,9 +375,11 @@ def collectProjects (targets, excludes, lang, defaults=True, quiet=False):
 			m = os.path.abspath(m)
 			base = m if os.path.isdir(m) else os.path.dirname(m)
 			proj = os.path.basename(base)
+			if proj.lower() in (r.lower() for r in EXCLUDED_REPOS):			# auch bei ausdruecklicher Angabe
+				continue
 
 			# Einstellungen nur fuer Projektordner, nicht fuer einzeln angegebene Dateien
-			exclDirs, inclDirs = projectSettings(base, defaults, lang.key) if os.path.isdir(m) else ([], [])
+			exclDirs, inclDirs = projectSettings(base, defaults, lang.key, lang.configKeys) if os.path.isdir(m) else ([], [])
 			for p in listFiles(m, lang.exts):
 				p = os.path.abspath(p)
 				if p in seen or any(re.search(x, p, re.I) for x in excludes):
@@ -379,8 +390,8 @@ def collectProjects (targets, excludes, lang, defaults=True, quiet=False):
 				seen.add(p)
 				userCode = bool(defaults and lang.isGenerated and lang.isGenerated(p))
 				projects.setdefault(proj, [base, [], False])[1].append((p, userCode))
-			if os.path.isdir(m) and proj in projects:
-				projects[proj][2] = True
+			if os.path.isdir(m) and (proj in projects or lang.allDirs):
+				projects.setdefault(proj, [base, [], True])[2] = True
 			elif os.path.isdir(m) and not quiet:
 				print(f"Hinweis: {proj}: keine Dateien zu pruefen", file=sys.stderr)
 	return projects
@@ -570,8 +581,12 @@ def run (lang):
 	for proj, (base, files, isFolder) in projects.items():
 		results = lang.checkProject(base, files)
 
-		# Die Version gilt fuer das Projekt, nur pruefbar, wenn der ganze Ordner angegeben ist
-		projIssues = checkProjectVersion(lang, files, results) if isFolder else []
+		# Die Version und checkWhole gelten fuer das Projekt, nur pruefbar, wenn der ganze Ordner angegeben ist
+		projIssues = []
+		if isFolder and lang.versionSection:
+			projIssues += checkProjectVersion(lang, files, results)
+		if isFolder and lang.checkWhole:
+			projIssues += lang.checkWhole(base, files, results)
 		userCode = {p for p, uc in files if uc}
 		nIssues = sum(len(i) for _, i in results) + len(projIssues)
 		nFiles += len(results)

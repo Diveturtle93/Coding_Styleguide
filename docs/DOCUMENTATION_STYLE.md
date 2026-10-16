@@ -72,7 +72,7 @@ Die Gliederung übernimmt die Reihenfolge, die in den bestehenden READMEs schon 
 | 10 | `## Unterstützte …` | optional | Cortex-M-Kerne bzw. STM32-Familien, wenn die Bibliothek nicht überall läuft |
 | 11 | `## Quellen` | optional | Datenblätter, Vorbilder, Protokollspezifikationen als Links |
 | 12 | `## Abhängigkeiten` | ja | Aufzählung `` `header.h` – Zweck ``. Eigene Bibliotheken werden auf ihr Repository verlinkt |
-| 13 | `## Lizenz` | wenn `LICENSE` vorhanden | Lizenz aus der `LICENSE` nennen und verlinken: „Dieses Projekt steht unter der [<Lizenz>](LICENSE).“ Bei den `STM32_*`-Projekten ist das die GPL-3.0. Ohne `LICENSE` entfällt der Abschnitt |
+| 13 | `## Lizenz` | wenn `LICENSE` vorhanden | Lizenz aus der `LICENSE` nennen und verlinken: `Dieses Projekt steht unter der [<Lizenz>](LICENSE).` Bei den `STM32_*`-Projekten ist das die GPL-3.0. Ohne `LICENSE` entfällt der Abschnitt |
 
 Vorlage:
 
@@ -198,6 +198,7 @@ Jedes Repository hat genau eine Version. Sie steht im CHANGELOG, als Git-Tag und
 - **Dateikopf:** enthält keine Version.
 - **Version im Code:** Der Abschnitt `Version definieren` mit `<NAME>_MAJOR`, `_MINOR`, `_PATCH` und `_DEV` steht genau einmal im Repository, in C in einem Header, in Python in einem Modul. Pro Datei ist er optional, pro Repository Pflicht. Fehlt er oder steht er mehrfach, ist das ein Befund des Stylechecks. `<NAME>` richtet sich nach der Datei, in der er steht.
 - **Mehrere Werkzeuge in einem Repository:** Auch dann gilt eine Version. Code, den mehrere Werkzeuge nutzen, liegt in einem eigenen Modul, nicht in einem der Werkzeuge (z. B. die Stylechecker in `Coding_Styleguide/tools`).
+- **Hilfsmodule:** Module, die eine Bibliothek intern nutzt (Ringpuffer, Transportschicht, angebundene ICs, Flash-Zugriff), haben keine eigene Version. Sie gehören zur Version des Hauptheaders, z. B. `canbus_ringbuffer.h` zu `canbus.h`, `IsoSPI.h` und `LTC1380.h` zu `LTC6811.h`, `flash.h` zu `xmodem.h`. Ob ein Modul im Code unabhängig ist, spielt dabei keine Rolle. Entscheidend ist, ob ein Projekt es ohne die Bibliothek einbindet. Erst dann wird es ein eigenes Repository mit eigener Version.
 
 ### 6.1 Entwicklungsstand `_DEV`
 
@@ -395,7 +396,7 @@ Eine Ordner-README ist Pflicht, wenn ein Ordner mehrere ausführbare Werkzeuge o
 
 ## 11. Automatische Prüfung
 
-Geplant ist `tools/doc_check.py`. Es prüft diese Regeln wie die Stylechecks den Code: gleicher Aufruf, dieselben Optionen (`-q`, `-s`, `-r`, `-f`, `-c`), Reports unter `reports/doc/`.
+`tools/doc_check.py` prüft diese Regeln wie die Stylechecks den Code: gleicher Aufruf, dieselben Optionen (`-q`, `-s`, `-r`, `-f`, `-c`), Reports unter `reports/doc/`. Aufruf und Optionen stehen in der [Tool-Beschreibung](../tools/README.md).
 
 Die Klasse ergibt sich aus dem Repo-Namen (`STM32_*` und `IMD_*` = Bibliothek, `EAuto_*` und `STM32F7_*` = Firmware-Anwendung). Ausnahmen stehen in der `.stylecheck`:
 
@@ -404,21 +405,25 @@ Die Klasse ergibt sich aus dem Repo-Namen (`STM32_*` und `IMD_*` = Bibliothek, `
 class = werkzeug                # EAuto_Dashboard
 # class = referenz              # CAN_Matrix, Coding_Styleguide
 # class = ausgenommen           # APP, Diveturtle93
+require = runbook               # zusätzlich verlangte Dokumente: architecture, runbook, adr
 ```
 
-| Geprüft | Befund, wenn … |
-|---|---|
-| Pflichtdateien | `README.md` oder `CHANGELOG.md` fehlt |
-| README-Gliederung | Pflichtabschnitt der Klasse fehlt oder steht an der falschen Stelle |
-| Lizenz | `LICENSE` vorhanden, aber kein `## Lizenz`, oder `## Lizenz` ohne `LICENSE` |
-| CHANGELOG-Format | `## [Unveröffentlicht]` fehlt oben, Version nicht `## [X.Y.Z] - JJJJ-MM-TT`, Versionen nicht absteigend, unbekannte Kategorie, Link-Referenz am Ende fehlt |
-| Tags | eine Version im CHANGELOG hat keinen Git-Tag `X.Y.Z` / `vX.Y.Z` oder umgekehrt; Tags eines Repositories mischen beide Formen |
-| Ablage | Fachdokument (`.md`) im Hauptverzeichnis statt in `docs/` |
-| Ordner-README | Ordner erfüllt das Kriterium aus Abschnitt 10, hat aber keine README |
-| Links | relativer Link in einer `.md` zeigt auf eine Datei, die es nicht gibt |
-| ADRs | Dateiname nicht `NNNN-titel.md`, Lücke in der Nummerierung, Status nicht `Vorgeschlagen`, `Angenommen` oder `Ersetzt durch NNNN` |
+Ob ARCHITECTURE, RUNBOOK oder ADRs nötig sind, lässt sich nicht zuverlässig automatisch erkennen. Das entscheidet man nach Abschnitt 3 und trägt es unter `require` ein. `doc_check.py` meldet dann, wenn das Dokument fehlt.
 
-Nicht geprüft wird, ob ARCHITECTURE oder RUNBOOK nötig sind. Die Kriterien dafür lassen sich nicht zuverlässig automatisch erkennen.
+| Geprüft | Befund, wenn … | Stand |
+|---|---|---|
+| Klasse | Klasse weder aus dem Namen ableitbar noch in `[doc] class` gesetzt, oder unbekannt | geprüft |
+| Pflichtdateien | `README.md` oder `CHANGELOG.md` fehlt oder ist anders geschrieben | geprüft |
+| Verlangte Dokumente | Ein Dokument aus `[doc] require` fehlt (`architecture` → `ARCHITECTURE.md`, `runbook` → `RUNBOOK.md`, `adr` → mindestens ein `docs/adr/NNNN-titel.md`) | geprüft |
+| Lizenz | `LICENSE` vorhanden, aber kein `## Lizenz`, oder `## Lizenz` ohne `LICENSE` | geprüft |
+| Ablage | Fachdokument (`.md`) im Hauptverzeichnis statt in `docs/` | geprüft |
+| Ordner-README | Ordner erfüllt das Kriterium aus Abschnitt 10, hat aber keine README | geprüft |
+| Links | Relativer Link in einer `.md` zeigt auf eine Datei, die es nicht gibt, in anderer Schreibweise (GitHub unterscheidet Groß- und Kleinschreibung) oder aus dem Repository heraus | geprüft |
+| README-Gliederung | Pflichtabschnitt der Klasse fehlt oder steht an der falschen Stelle | folgt |
+| CHANGELOG-Format | `## [Unveröffentlicht]` fehlt oben, Version nicht `## [X.Y.Z] - JJJJ-MM-TT`, Versionen nicht absteigend, unbekannte Kategorie, Link-Referenz am Ende fehlt | folgt |
+| Tags | eine Version im CHANGELOG hat keinen Git-Tag `X.Y.Z` / `vX.Y.Z` oder umgekehrt; Tags eines Repositories mischen beide Formen | folgt |
+| ARCHITECTURE / RUNBOOK | Pflichtabschnitte aus Abschnitt 7 bzw. 8 fehlen | folgt |
+| ADRs | Dateiname nicht `NNNN-titel.md`, Lücke in der Nummerierung, Status nicht `Vorgeschlagen`, `Angenommen` oder `Ersetzt durch NNNN` | folgt |
 
 ---
 
@@ -432,5 +437,5 @@ Nicht geprüft wird, ob ARCHITECTURE oder RUNBOOK nötig sind. Die Kriterien daf
 - [ ] Versions-Defines genau einmal im Repository, in `main` mit `_DEV` 0
 - [ ] Fachdokumente in `docs/`, in der README unter `## Dokumente` verlinkt
 - [ ] Ordner mit mehreren Werkzeugen oder mehr als 3 Dokumenten hat eine README
-- [ ] ARCHITECTURE, RUNBOOK und ADRs vorhanden, wo Abschnitt 3 sie verlangt
+- [ ] ARCHITECTURE, RUNBOOK und ADRs vorhanden, wo Abschnitt 3 sie verlangt, und in `[doc] require` eingetragen
 - [ ] Schnittstellen-Änderung: README und CHANGELOG im selben Commit angepasst

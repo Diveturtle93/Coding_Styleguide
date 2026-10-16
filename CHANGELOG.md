@@ -20,6 +20,9 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 - C Coding Style: Unterabschnitte. Ein Abschnitt darf in benannte Blöcke geteilt werden, die nur durch eine Trennlinie getrennt sind. Der C-Stylecheck meldet dafür keine fehlende Leerzeile mehr und zählt Variablen darin zum übergeordneten Variablen-Abschnitt.
 - Python-Stylecheck meldet `from`-Importe mit mehr als 5 Namen, die nicht einen Namen pro Zeile haben.
 - `.stylecheck`: Der Abschnitt `[doc]` für das geplante `doc_check.py` erzeugt keine Warnung mehr.
+- `tools/doc_check.py` prüft, ob ein Projekt alle notwendigen Dokumente hat: Pflichtdateien der Repo-Klasse, per `[doc] require` verlangte ARCHITECTURE, RUNBOOK oder ADRs, `## Lizenz` passend zur `LICENSE`, Fachdokumente in `docs/`, Ordner-READMEs und relative Links. Reports unter `reports/doc/`.
+- `.stylecheck` in diesem Repository mit Klasse `referenz` und verlangter ARCHITECTURE.
+- Das Repository `Diveturtle93` (GitHub-Profil) wird von allen Prüfskripten übersprungen.
 
 ### Geändert
 - README nach der Gliederung für Referenz-Repos: Beschreibung, Inhalt, Verwendung und Abhängigkeiten.
@@ -33,7 +36,9 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 - Leerzeichen vor `(` nach Schlüsselwörtern: Python prüft alle Schlüsselwörter (z. B. auch `return (`, `with (`), C zusätzlich `return (`.
 - C-Header: Die Typedef-Abschnitte stehen jetzt nach `Version definieren` und vor `Konstanten definieren`. `Funktionen definieren` ist optional.
 - C-Quelldateien: `Variablen definieren` ist optional.
+- Documentation Style, Versionierung: Hilfsmodule einer Bibliothek (Ringpuffer, Transportschicht, angebundene ICs) haben keine eigene Version, sie gehören zur Version des Hauptheaders.
 - Python Coding Style begründet, warum der Debug-Abschnitt anders als in C in jedem Modul Pflicht ist.
+- Documentation Style, automatische Prüfung: Ob ARCHITECTURE, RUNBOOK oder ADRs nötig sind, wird in `[doc] require` festgelegt und von `doc_check.py` geprüft.
 
 ### Behoben
 - C-Stylecheck: Das `default` eines verschachtelten `switch` zählt nicht mehr für den äußeren.

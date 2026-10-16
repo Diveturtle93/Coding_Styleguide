@@ -12,7 +12,7 @@ Die Regeln legen fest, wie C- und Python-Dateien aufgebaut und formatiert sind u
 |---|---|
 | [docs/C_CODING_STYLE.md](docs/C_CODING_STYLE.md) | Regeln für C-Dateien (`.c` / `.h`), geprüft von [tools/c_stylecheck.py](tools/c_stylecheck.py) |
 | [docs/PYTHON_CODING_STYLE.md](docs/PYTHON_CODING_STYLE.md) | Regeln für Python-Dateien (`.py`), geprüft von [tools/py_stylecheck.py](tools/py_stylecheck.py) |
-| [docs/DOCUMENTATION_STYLE.md](docs/DOCUMENTATION_STYLE.md) | Regeln für die Dokumentation (`.md`) und die Versionierung, Prüfung mit `tools/doc_check.py` geplant |
+| [docs/DOCUMENTATION_STYLE.md](docs/DOCUMENTATION_STYLE.md) | Regeln für die Dokumentation (`.md`) und die Versionierung, geprüft von [tools/doc_check.py](tools/doc_check.py) |
 | [tools/](tools/README.md) | Prüfskripte: Aufruf, Optionen, Reports und Projekteinstellungen (`.stylecheck`) |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Aufbau und Ablauf der Prüfskripte |
 | [CHANGELOG.md](CHANGELOG.md) | Änderungen je Version |
@@ -31,6 +31,7 @@ own/
 ```sh
 py tools/c_stylecheck.py          # alle Ordner neben diesem Repo prüfen
 py tools/py_stylecheck.py -q      # nur Python-Dateien mit Befund anzeigen
+py tools/doc_check.py -q          # Dokumentation aller Projekte prüfen
 ```
 
 Alle Optionen, Reports und Projekteinstellungen stehen in der [Tool-Beschreibung](tools/README.md).

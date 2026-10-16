@@ -1,15 +1,16 @@
 # Stylecheck-Tools
 
-Die Skripte pruefen Quelldateien gegen die Coding Styles von **Diveturtle93**:
+Die Skripte pruefen Quelldateien und Dokumentation gegen die Regeln von **Diveturtle93**:
 
 | Skript | Prueft | Regeln | Voraussetzung |
 |---|---|---|---|
 | [c_stylecheck.py](c_stylecheck.py) | `.c` / `.h` | [C Coding Style](../docs/C_CODING_STYLE.md) | Python 3 |
 | [py_stylecheck.py](py_stylecheck.py) | `.py` | [Python Coding Style](../docs/PYTHON_CODING_STYLE.md) | Python 3.10+ |
+| [doc_check.py](doc_check.py) | Dokumente je Projekt, `.md` | [Documentation Style](../docs/DOCUMENTATION_STYLE.md) | Python 3 |
 
 Gemeinsam genutzter Code (Kommandozeile, Projektsuche, `.stylecheck`, Kopfblock- und Abschnittspruefungen, Reihenfolge, Reports und Uebersicht) liegt in [stylecheck_common.py](stylecheck_common.py). Es wird nicht selbst aufgerufen und muss im selben Ordner wie die Skripte liegen.
 
-Beide Skripte benoetigen keine weiteren Pakete und haben dieselben Optionen. Die Beispiele zeigen `c_stylecheck.py`, fuer Python wird nur der Skriptname getauscht.
+Alle Skripte benoetigen keine weiteren Pakete und haben dieselben Optionen. Die Beispiele zeigen `c_stylecheck.py`, fuer Python oder die Dokumentation wird nur der Skriptname getauscht. Was `doc_check.py` anders macht, steht unter [Dokumentation pruefen](#dokumentation-pruefen).
 
 ---
 
@@ -40,6 +41,27 @@ Rueckgabewert: `0` = keine Befunde, `1` = Befunde, `2` = keine Dateien gefunden.
 
 ---
 
+## Dokumentation pruefen
+
+`doc_check.py` prueft die Regeln aus [Documentation Style, Abschnitt 11](../docs/DOCUMENTATION_STYLE.md#11-automatische-prüfung). Bisher ist das die Vollstaendigkeit, die Gliederung von README, CHANGELOG, ARCHITECTURE und RUNBOOK folgt.
+
+```sh
+py tools/doc_check.py                             # alle Ordner neben diesem Repo
+py tools/doc_check.py ../STM32_Canbus -q          # ein Projekt, nur Dateien mit Befund
+py tools/doc_check.py -r -f                       # Reports nach reports/doc/, nur Projekte mit Befunden
+```
+
+Unterschiede zu den Stylechecks:
+
+- Jeder angegebene Ordner ist ein Projekt, auch ohne `.md`-Datei, denn eine fehlende README ist gerade der Befund.
+- Befunde zum ganzen Projekt (`Projekt`): Repo-Klasse, Pflichtdateien `README.md` und `CHANGELOG.md`, Dokumente aus `[doc] require`, Fachdokumente im Hauptverzeichnis (`Ablage`) und Ordner ohne README, die mehr als 3 Dokumente oder mindestens 2 ausfuehrbare Werkzeuge (`.py` mit Shebang oder `__main__`, `.sh`, `.bat`, `.cmd`, `.ps1`) enthalten.
+- Befunde je `.md`-Datei: relative Links auf fehlende Dateien, in anderer Schreibweise oder aus dem Repository heraus (Links in Codebloecken und Inline-Code zaehlen nicht); in der README im Hauptverzeichnis `## Lizenz` genau dann, wenn eine `LICENSE` vorliegt.
+- Repos der Klasse `ausgenommen` werden gelistet, aber nicht geprueft.
+- Ein einzeln angegebenes Dokument wird nur auf Links und Lizenz geprueft, die Pruefungen fuer das Projekt entfallen.
+- Automatisch ausgeschlossen werden Git-Submodule, versteckte Ordner sowie `Drivers`, `Middlewares`, `CMSIS`, `Debug`, `Release`, `build`, `dist`, virtuelle Umgebungen, `node_modules` und `__pycache__`.
+
+---
+
 ## Reports
 
 Mit `-r` wird je Projekt ein Report geschrieben, Standard-Ordner ist `reports/` in diesem Repo. Jede Sprache hat einen eigenen Unterordner:
@@ -48,6 +70,7 @@ Mit `-r` wird je Projekt ein Report geschrieben, Standard-Ordner ist `reports/` 
 |---|---|---|
 | `c_stylecheck.py` | `reports/c/` | `reports/c/20261008_STM32_Canbus.txt` |
 | `py_stylecheck.py` | `reports/py/` | `reports/py/20261012_EAuto_Dashboard.txt` |
+| `doc_check.py` | `reports/doc/` | `reports/doc/20261016_STM32_Canbus.txt` |
 
 - Ein Report listet je Datei jeden Befund mit Zeilennummer und Kategorie (`Datei` = betrifft die ganze Datei, z. B. fehlender Abschnitt).
 - Der Dateiname beginnt mit dem Datum `<JJJJMMTT>`; ein Report vom selben Tag wird ueberschrieben, aeltere bleiben erhalten.
@@ -59,6 +82,8 @@ Der Ordner `reports/` steht in der `.gitignore`.
 ---
 
 ## Automatische Ausschluesse
+
+Das Repository `Diveturtle93` (GitHub-Profil) wird von allen Skripten uebersprungen, auch wenn es ausdruecklich angegeben ist, und erscheint nicht in der Uebersicht (`EXCLUDED_REPOS` in `stylecheck_common.py`).
 
 Git-Submodule aus der `.gitmodules` des Projekts und der Ordner `.git` werden immer uebersprungen; Submodule sind eigene Repos und werden dort geprueft. Dazu kommen je Sprache:
 
@@ -78,14 +103,14 @@ Mit `--no-default-exclude` werden alle diese Dateien vollstaendig geprueft.
 
 ## Projekteinstellungen (`.stylecheck`)
 
-Projektspezifische Einstellungen stehen optional in der Datei `.stylecheck` im Projektordner. Sie wird von beiden Skripten gelesen, ein unbekannter Abschnitt oder Eintrag erzeugt eine Warnung:
+Projektspezifische Einstellungen stehen optional in der Datei `.stylecheck` im Projektordner. Sie wird von allen Skripten gelesen, ein unbekannter Abschnitt oder Eintrag erzeugt eine Warnung:
 
 | Abschnitt | Gilt fuer |
 |---|---|
-| `[stylecheck]` | beide Sprachen |
+| `[stylecheck]` | alle Skripte |
 | `[c]` | nur `c_stylecheck.py`, ergaenzt `[stylecheck]` |
 | `[py]` | nur `py_stylecheck.py`, ergaenzt `[stylecheck]` |
-| `[doc]` | das geplante `doc_check.py` (Repo-Klasse, siehe [Documentation Style, Abschnitt 11](../docs/DOCUMENTATION_STYLE.md#11-automatische-prüfung)), wird von den Stylechecks ueberlesen |
+| `[doc]` | nur `doc_check.py`, ergaenzt `[stylecheck]`. Eintraege `exclude`, `class` (Repo-Klasse) und `require` (zusaetzlich verlangte Dokumente), siehe [Documentation Style, Abschnitt 11](../docs/DOCUMENTATION_STYLE.md#11-automatische-prüfung) |
 
 Ordner oder einzelne Dateien werden relativ zum Projektordner angegeben, mehrere mit Komma getrennt:
 
@@ -99,6 +124,10 @@ include = Core, Application     # nur diese Ordner pruefen
 
 [py]
 exclude = openblt               # nur fuer Python zusaetzlich ausschliessen
+
+[doc]
+class = werkzeug                # Repo-Klasse, wenn sie sich nicht aus dem Namen ergibt
+require = runbook               # RUNBOOK.md muss vorhanden sein
 ```
 
 Die Datei wird nur angelegt, wenn die automatischen Ausschluesse nicht reichen. Die frueheren Dateien `.c_stylecheck` und `.py_stylecheck` werden nicht mehr gelesen; liegen sie noch im Projekt, gibt das Skript eine Warnung aus.

@@ -1,4 +1,4 @@
-# Style-Reports von tools/c_stylecheck.py und tools/py_stylecheck.py
+# Reports von tools/c_stylecheck.py, tools/py_stylecheck.py und tools/doc_check.py
 reports/
 
 # Python-Cache (beide Pruefer importieren stylecheck_common.py)
