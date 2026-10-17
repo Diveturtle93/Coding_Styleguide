@@ -6,6 +6,8 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unveröffentlicht]
 
+## [1.1.0] - 2026-10-17
+
 ### Hinzugefügt
 - Documentation Style (`DOCUMENTATION_STYLE.md`) mit Repo-Klassen, Pflichtdokumenten, Vorlagen für README, CHANGELOG, ARCHITECTURE, RUNBOOK und ADR sowie Regeln zur Versionierung.
 - `ARCHITECTURE.md` beschreibt Aufbau und Ablauf der Prüfskripte.
@@ -58,5 +60,6 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 - Projekteinstellungen über die Datei `.stylecheck` im geprüften Projekt.
 - Automatische Ausschlüsse für HAL, CMSIS, Build-Ordner, Git-Submodule und virtuelle Python-Umgebungen; von STM32CubeMX erzeugte Dateien werden nur in den `USER CODE`-Bereichen geprüft.
 
-[Unveröffentlicht]: https://github.com/Diveturtle93/Coding_Styleguide/compare/1.0.0...HEAD
+[Unveröffentlicht]: https://github.com/Diveturtle93/Coding_Styleguide/compare/1.1.0...HEAD
+[1.1.0]: https://github.com/Diveturtle93/Coding_Styleguide/compare/1.0.0...1.1.0
 [1.0.0]: https://github.com/Diveturtle93/Coding_Styleguide/releases/tag/1.0.0
