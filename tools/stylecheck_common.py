@@ -45,9 +45,9 @@ DEBUG_STYLECHECK_COMMON							= False
 # Version definieren
 #-----------------------------------------------------------------------
 STYLECHECK_COMMON_MAJOR							= 1
-STYLECHECK_COMMON_MINOR							= 0
+STYLECHECK_COMMON_MINOR							= 1
 STYLECHECK_COMMON_PATCH							= 0
-STYLECHECK_COMMON_DEV							= 1
+STYLECHECK_COMMON_DEV							= 0
 #-----------------------------------------------------------------------
 
 # Konstanten definieren
