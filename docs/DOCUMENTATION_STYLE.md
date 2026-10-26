@@ -2,7 +2,7 @@
 
 Verbindliche Regeln für die Dokumentation in den Repositories von **Diveturtle93**: welche Dokumente ein Repository braucht und wie sie aufgebaut sind.
 
-Jedes Repository hat eine README und einen CHANGELOG. Was in der README steht, hängt von der Repo-Klasse ab. ARCHITECTURE, RUNBOOK, ADRs und Ordner-READMEs kommen nur hinzu, wenn die Kriterien in Abschnitt 3 zutreffen. CONTRIBUTING, SECURITY und CODE_OF_CONDUCT entfallen.
+Jedes Repository hat eine README und einen CHANGELOG. Was in der README steht, hängt von der Repo-Klasse ab. ARCHITECTURE, RUNBOOK, ADRs und Ordner-READMEs kommen nur hinzu, wenn die Kriterien in Abschnitt 3 zutreffen. SECURITY ist optional (Abschnitt 10). CONTRIBUTING und CODE_OF_CONDUCT entfallen.
 
 1. [Allgemeine Regeln](#1-allgemeine-regeln)
 2. [Repo-Klassen](#2-repo-klassen)
@@ -13,9 +13,10 @@ Jedes Repository hat eine README und einen CHANGELOG. Was in der README steht, h
 7. [ARCHITECTURE](#7-architecture)
 8. [RUNBOOK](#8-runbook)
 9. [ADR (nur große Projekte)](#9-adr-nur-große-projekte)
-10. [Ordner-README](#10-ordner-readme)
-11. [Automatische Prüfung](#11-automatische-prüfung)
-12. [Checkliste](#12-checkliste)
+10. [SECURITY (optional)](#10-security-optional)
+11. [Ordner-README](#11-ordner-readme)
+12. [Automatische Prüfung](#12-automatische-prüfung)
+13. [Checkliste](#13-checkliste)
 
 ---
 
@@ -67,6 +68,7 @@ Ein Dokument wird Pflicht, sobald mindestens ein Kriterium zutrifft. Die Zeilenz
 | `ARCHITECTURE.md` | ≥ 3 zusammenspielende Module oder Schichten; ein Datenfluss über mehrere Stufen (ISR → Puffer → Verarbeitung); Speicher- oder Flash-Aufteilung; mehrere Teilsysteme (z. B. Firmware + PC-Tool); Richtwert > 1000 Zeilen | Hauptverzeichnis | `STM32_LTC6811`, `STM32_Shell`, `STM32_BootloaderXModem`, `STM32_Logging`, `EAuto_BMS` |
 | `RUNBOOK.md` | Am Gerät wird etwas ausgeführt, das schiefgehen kann: Firmware-Update, Inbetriebnahme, Kalibrierung, Wiederherstellung. Liegt in der Anwendung oder im Werkzeug. Eine Bibliothek, die festlegt, was ein Mensch am Gerät tut, hat ein Runbook mit den allgemeinen Prozeduren (Abschnitt 8) | Hauptverzeichnis | `EAuto_Bootloader`, `EAuto_Dashboard`, `STM32_BootloaderXModem`; `EAuto_BMS` prüfen |
 | `docs/adr/` | Das Projekt hat eine ARCHITECTURE **und** Entscheidungen, die sich schwer zurücknehmen lassen: Speicherformat, Protokoll, Speicherlayout, Hardwarewahl | `docs/adr/NNNN-titel.md` | `STM32_Logging` |
+| `SECURITY.md` | keine Pflicht; sinnvoll, wenn das Repository öffentlich ist und Code enthält, der produktiv auf einem Gerät oder PC läuft | `.github/` | – |
 | Ordner-README | Ordner mit mehreren ausführbaren Werkzeugen oder mehr als 3 Dokumenten | im Ordner selbst | `Coding_Styleguide/tools`; `docs/` von `EAuto_BMS` und `EAuto_Motor` nach dem Verschieben |
 
 ---
@@ -441,7 +443,21 @@ Kandidaten aus den Logging-Konzepten: Boot-ID als Log-ID, Config als A/B-Kopie i
 
 ---
 
-## 10. Ordner-README
+## 10. SECURITY (optional)
+
+Die SECURITY beschreibt, wie Sicherheitslücken gemeldet werden, ohne sie öffentlich zu machen. GitHub verlinkt sie im Reiter **Security** und weist beim Anlegen eines Issues darauf hin.
+
+- **Ablage:** `.github/SECURITY.md`. Im Hauptverzeichnis ist sie nach Abschnitt 1 nicht erlaubt. Die README verlinkt sie nicht.
+- **Meldeweg:** In den Repository-Einstellungen unter Settings → Security → *Private vulnerability reporting* aktivieren. Eine E-Mail-Adresse ist optional.
+- **Unterstützte Versionen:** nur der neueste Tag in `main`. Die Tabelle nennt keine festen Nummern, damit sie beim Release nicht angepasst werden muss. Stände mit `_DEV` 1 sind kein Release (Abschnitt 6.1).
+- **Behebung:** als Patch in `main` nach Abschnitt 6.3, Eintrag im CHANGELOG unter `Behoben`.
+- **Länge:** eine Seite.
+
+Vorlage: [templates/SECURITY.md](templates/SECURITY.md). Sie wird unverändert als `.github/SECURITY.md` ins Projekt kopiert, ausgefüllt werden nur `<Name>` und die Frist `<N>`.
+
+---
+
+## 11. Ordner-README
 
 Eine Ordner-README ist Pflicht, wenn ein Ordner mehrere ausführbare Werkzeuge oder mehr als 3 Dokumente enthält. Vorbild ist [tools/README.md](../tools/README.md).
 
@@ -452,7 +468,7 @@ Eine Ordner-README ist Pflicht, wenn ein Ordner mehrere ausführbare Werkzeuge o
 
 ---
 
-## 11. Automatische Prüfung
+## 12. Automatische Prüfung
 
 `tools/doc_check.py` prüft diese Regeln wie die Stylechecks den Code: gleicher Aufruf, dieselben Optionen (`-q`, `-s`, `-r`, `-f`, `-c`), Reports unter `reports/doc/`. Aufruf und Optionen stehen in der [Tool-Beschreibung](../tools/README.md).
 
@@ -475,7 +491,7 @@ Ob ARCHITECTURE, RUNBOOK oder ADRs nötig sind, lässt sich nicht zuverlässig a
 | Verlangte Dokumente | Ein Dokument aus `[doc] require` fehlt (`architecture` → `ARCHITECTURE.md`, `runbook` → `RUNBOOK.md`, `adr` → mindestens ein `docs/adr/NNNN-titel.md`) | geprüft |
 | Lizenz | `LICENSE` vorhanden, aber kein `## Lizenz`, oder `## Lizenz` ohne `LICENSE` | geprüft |
 | Ablage | Fachdokument (`.md`) im Hauptverzeichnis statt in `docs/` | geprüft |
-| Ordner-README | Ordner erfüllt das Kriterium aus Abschnitt 10, hat aber keine README | geprüft |
+| Ordner-README | Ordner erfüllt das Kriterium aus Abschnitt 11, hat aber keine README | geprüft |
 | Links | Relativer Link in einer `.md` zeigt auf eine Datei, die es nicht gibt, in anderer Schreibweise (GitHub unterscheidet Groß- und Kleinschreibung) oder aus dem Repository heraus | geprüft |
 | README-Gliederung | Pflichtabschnitt der Klasse fehlt oder steht an der falschen Stelle | folgt |
 | CHANGELOG-Format | `## [Unveröffentlicht]` fehlt oben, Version nicht `## [X.Y.Z] - JJJJ-MM-TT`, Versionen nicht absteigend, unbekannte Kategorie, Link-Referenz am Ende fehlt | folgt |
@@ -486,7 +502,7 @@ Ob ARCHITECTURE, RUNBOOK oder ADRs nötig sind, lässt sich nicht zuverlässig a
 
 ---
 
-## 12. Checkliste
+## 13. Checkliste
 
 - [ ] Repo-Klasse bekannt (aus dem Namen oder `[doc] class` in `.stylecheck`)
 - [ ] `README.md` mit den Pflichtabschnitten der Klasse in der richtigen Reihenfolge
@@ -499,4 +515,5 @@ Ob ARCHITECTURE, RUNBOOK oder ADRs nötig sind, lässt sich nicht zuverlässig a
 - [ ] Ordner mit mehreren Werkzeugen oder mehr als 3 Dokumenten hat eine README
 - [ ] Dokumente ab 200 Zeilen oder ab 6 nummerierten `##`-Abschnitten haben ein vollständiges Inhaltsverzeichnis
 - [ ] ARCHITECTURE, RUNBOOK und ADRs vorhanden, wo Abschnitt 3 sie verlangt, und in `[doc] require` eingetragen
+- [ ] Falls SECURITY vorhanden: liegt in `.github/`, *Private vulnerability reporting* ist aktiviert
 - [ ] Schnittstellen-Änderung: README und CHANGELOG im selben Commit angepasst
