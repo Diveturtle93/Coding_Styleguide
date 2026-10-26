@@ -241,6 +241,27 @@ const uint8_t tabelle[] =													// Umrechnungstabelle
 
 In von STM32CubeMX erzeugten Dateien werden Typedefs und Variablen-Abschnitte nicht geprueft.
 
+### Typen von Variablen
+
+Der Typ jeder Variable muss im Projekt definiert sein. Sonst faellt ein Tippfehler oder ein umbenannter Typ erst beim Kompilieren auf:
+
+```c
+typedef struct
+{
+	uint16_t head;															// Kopf des Ringbuffers
+} RingbufferCANBusTypeDef;
+
+RingbufferTypeDef rxRing;													// Fehler: Typ heisst RingbufferCANBusTypeDef
+```
+
+Als definiert gelten:
+
+- Standard-Typen von C (`int`, `char`, `unsigned long` usw.), `stdint.h` (`uint8_t` usw.) und weitere Typen der Standardbibliothek (`size_t`, `FILE` usw.),
+- Typedefs im Projekt, einschliesslich HAL, CMSIS, Middleware und Submodule (`UART_HandleTypeDef`, `TaskHandle_t`),
+- `struct <Name>`, `enum <Name>` und `union <Name>`, wenn der Tag im Projekt definiert oder vorwaerts deklariert ist.
+
+Geprueft werden Variablen auf Dateiebene, lokale Variablen, struct-Member, Zaehler in `for` und benannte Parameter (keine Rueckgabetypen, keine Funktionszeiger). Der Befund nennt den aehnlichsten bekannten Typ. In von STM32CubeMX erzeugten Dateien wird nur der USER-CODE-Bereich geprueft.
+
 ### Includes
 
 Jeder Include steht im passenden Abschnitt (gilt fuer `.h` und `.c`):
@@ -525,6 +546,7 @@ Das Skript [tools/c_stylecheck.py](../tools/c_stylecheck.py) prueft C-Dateien ge
 - [ ] Leere Include-Abschnitte trotzdem angelegt
 - [ ] `.c`: keine Typedefs, Variablen nur in `Variablen definieren` / `Variablen einbinden`, moeglichst mit Kommentar
 - [ ] `.h`: Typedefs nach `Version definieren`, vor allen anderen Defines
+- [ ] Typen aller Variablen und Parameter im Projekt definiert
 - [ ] `.h`: `#pragma once` **und** Include-Guard `INC_<NAME>_H_`
 - [ ] Versions-Defines genau einmal im Repository, in einem Header
 - [ ] Jede Funktion mit Beschreibungskommentar und Trennlinien

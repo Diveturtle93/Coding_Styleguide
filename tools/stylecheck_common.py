@@ -354,6 +354,17 @@ def projectSettings (base, submodules, lang, keys=("exclude", "include"), warn=T
 	return [normDir(d) for d in excl if d.strip()], [normDir(d) for d in incl if d.strip()]
 #-----------------------------------------------------------------------
 
+# Komma-Liste eines Eintrags im Sprachabschnitt der .stylecheck, [] = nicht vorhanden
+#-----------------------------------------------------------------------
+def projectList (base, lang, key):
+	cfgPath = os.path.join(base, CONFIG_FILE)
+	if not os.path.isfile(cfgPath):
+		return []
+	cfg = configparser.ConfigParser(inline_comment_prefixes=("#", ";"))
+	cfg.read(cfgPath, encoding="utf-8-sig")
+	return [v.strip() for v in cfg.get(lang, key, fallback="").split(",") if v.strip()]
+#-----------------------------------------------------------------------
+
 # Liegt die Datei (relativ zum Projekt) in einem der Ordner?
 #-----------------------------------------------------------------------
 def inDirs (rel, dirs):

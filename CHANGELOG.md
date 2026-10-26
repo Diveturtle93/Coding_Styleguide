@@ -6,6 +6,9 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+- C-Stylecheck meldet Variablen und Parameter, deren Typ im Projekt nicht definiert ist (z. B. Tippfehler im Typnamen), und nennt den aehnlichsten bekannten Typ. Bekannt sind Standard-Typen, Typedefs und `struct`/`enum`/`union`-Tags im Projekt (inkl. HAL, CMSIS, Middleware und Submodule) sowie Eintraege in `[c] types` der `.stylecheck`.
+
 ## [1.1.0] - 2026-10-17
 
 ### Hinzugefügt
