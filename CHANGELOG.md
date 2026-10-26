@@ -13,6 +13,7 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 - Documentation Style: Dokumente ab 200 Zeilen oder ab 6 nummerierten `##`-Abschnitten bekommen ein Inhaltsverzeichnis der `##`-Abschnitte, außer dem CHANGELOG.
 - Inhaltsverzeichnisse in C Coding Style, Python Coding Style und Documentation Style.
 - Documentation Style: optionale `SECURITY.md` unter `.github/` für Repositories, deren Code produktiv läuft, mit Vorlage `docs/templates/SECURITY.md`.
+- Documentation Style: optionale `CONTRIBUTING.md` unter `.github/` mit Vorlage `docs/templates/CONTRIBUTING.md`.
 
 ### Geändert
 - Documentation Style: Verweise zwischen Repositories gehen nur vom übergeordneten Projekt auf die eingebundenen Bibliotheken. `## Hinweise` einer Bibliotheks-README listet keine Projekte mehr, die sie einsetzen.
