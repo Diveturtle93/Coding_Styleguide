@@ -4,6 +4,19 @@ Verbindliche Regeln für die Dokumentation in den Repositories von **Diveturtle9
 
 Jedes Repository hat eine README und einen CHANGELOG. Was in der README steht, hängt von der Repo-Klasse ab. ARCHITECTURE, RUNBOOK, ADRs und Ordner-READMEs kommen nur hinzu, wenn die Kriterien in Abschnitt 3 zutreffen. CONTRIBUTING, SECURITY und CODE_OF_CONDUCT entfallen.
 
+1. [Allgemeine Regeln](#1-allgemeine-regeln)
+2. [Repo-Klassen](#2-repo-klassen)
+3. [Wann welches Dokument](#3-wann-welches-dokument)
+4. [README](#4-readme)
+5. [CHANGELOG](#5-changelog)
+6. [Versionierung](#6-versionierung)
+7. [ARCHITECTURE](#7-architecture)
+8. [RUNBOOK](#8-runbook)
+9. [ADR (nur große Projekte)](#9-adr-nur-große-projekte)
+10. [Ordner-README](#10-ordner-readme)
+11. [Automatische Prüfung](#11-automatische-prüfung)
+12. [Checkliste](#12-checkliste)
+
 ---
 
 ## 1. Allgemeine Regeln
@@ -17,8 +30,14 @@ Jedes Repository hat eine README und einen CHANGELOG. Was in der README steht, h
 | Bilder | `.gif` / `.png` nur, wenn Mermaid nicht reicht, abgelegt in `docs/img/` |
 | Ergänzende Dokumente | in `docs/`, Beispielcode in `examples/` |
 | Änderungen | Wird eine Schnittstelle geändert, werden README und CHANGELOG im selben Commit angepasst |
+| Inhaltsverzeichnis | ab 200 Zeilen oder ab 6 nummerierten `##`-Abschnitten, außer im CHANGELOG |
+| Verweise zwischen Repositories | nur vom übergeordneten Projekt auf die Bibliotheken, die es einbindet, nie von einer Bibliothek auf ihre Nutzer |
+
+Eine Bibliothek weiß nicht, wo sie eingesetzt wird. Eine Liste ihrer Nutzer veraltet mit jedem neuen Projekt und müsste in einem fremden Repository gepflegt werden. Welche Bibliotheken ein Projekt einbindet, steht in seinem `## Abhängigkeiten`, und dort ist der Verweis immer aktuell.
 
 Im Hauptverzeichnis liegen nur README, CHANGELOG, LICENSE, ARCHITECTURE und RUNBOOK. Fachdokumente wie `ADC.md`, `CAN.md` oder `INPUTS.md` liegen in `docs/`. Die README verlinkt sie im Abschnitt `## Dokumente` mit einer Tabelle `Dokument | Inhalt`.
+
+Das Inhaltsverzeichnis ist eine nummerierte Liste der `##`-Abschnitte ohne `###`, damit es kurz bleibt und selten veraltet. Es steht direkt nach der Einleitung vor der ersten Trennlinie und hat keine eigene Überschrift, damit die Nummerierung der Abschnitte bleibt. Überschriften in Vorlagen und Codeblöcken gehören nicht hinein. Die Links verwenden den Anker, den GitHub aus der Überschrift bildet, z. B. `[Versionierung](#6-versionierung)`.
 
 ---
 
@@ -46,7 +65,7 @@ Ein Dokument wird Pflicht, sobald mindestens ein Kriterium zutrifft. Die Zeilenz
 | `CHANGELOG.md` | immer, ab dem ersten Tag `1.0.0` | Hauptverzeichnis | alle Repos außer den ausgenommenen |
 | `LICENSE` | keine Pflicht; liegt sie vor, ist `## Lizenz` in der README Pflicht | Hauptverzeichnis | fehlt in `CAN_Matrix` |
 | `ARCHITECTURE.md` | ≥ 3 zusammenspielende Module oder Schichten; ein Datenfluss über mehrere Stufen (ISR → Puffer → Verarbeitung); Speicher- oder Flash-Aufteilung; mehrere Teilsysteme (z. B. Firmware + PC-Tool); Richtwert > 1000 Zeilen | Hauptverzeichnis | `STM32_LTC6811`, `STM32_Shell`, `STM32_BootloaderXModem`, `STM32_Logging`, `EAuto_BMS` |
-| `RUNBOOK.md` | Am Gerät wird etwas ausgeführt, das schiefgehen kann: Firmware-Update, Inbetriebnahme, Kalibrierung, Wiederherstellung. Liegt in der Anwendung oder im Werkzeug, nicht in der Bibliothek | Hauptverzeichnis | `EAuto_Bootloader`, `EAuto_Dashboard` (vorhanden); `EAuto_BMS` prüfen |
+| `RUNBOOK.md` | Am Gerät wird etwas ausgeführt, das schiefgehen kann: Firmware-Update, Inbetriebnahme, Kalibrierung, Wiederherstellung. Liegt in der Anwendung oder im Werkzeug. Eine Bibliothek, die festlegt, was ein Mensch am Gerät tut, hat ein Runbook mit den allgemeinen Prozeduren (Abschnitt 8) | Hauptverzeichnis | `EAuto_Bootloader`, `EAuto_Dashboard`, `STM32_BootloaderXModem`; `EAuto_BMS` prüfen |
 | `docs/adr/` | Das Projekt hat eine ARCHITECTURE **und** Entscheidungen, die sich schwer zurücknehmen lassen: Speicherformat, Protokoll, Speicherlayout, Hardwarewahl | `docs/adr/NNNN-titel.md` | `STM32_Logging` |
 | Ordner-README | Ordner mit mehreren ausführbaren Werkzeugen oder mehr als 3 Dokumenten | im Ordner selbst | `Coding_Styleguide/tools`; `docs/` von `EAuto_BMS` und `EAuto_Motor` nach dem Verschieben |
 
@@ -65,10 +84,10 @@ Die Gliederung übernimmt die Reihenfolge, die in den bestehenden READMEs schon 
 | 3 | `## Funktionsumfang` | optional | Aufzählung der Features bei Modulen mit vielen Funktionen (Shell, Systeminfo) |
 | 4 | `## Dateien` | ja | Tabelle `Datei` / `Beschreibung`, eine Zeile pro `.c`/`.h`-Datei |
 | 5 | `## Hardware-Konfiguration` / `## Konfigurationsparameter` | optional | CubeMX-Einstellungen, Pinbelegung, Timer/DMA und `#define`-Parameter, jeweils als Tabelle |
-| 6 | Fachliche Abschnitte | optional | z. B. Adressierung, Datentypen, Protokoll, Zustände. Tabellen für Werte, Mermaid für Abläufe und Zustände |
+| 6 | Fachliche Abschnitte | optional | z. B. Adressierung, Datentypen, Protokoll, Zustände. Tabellen für Werte, Mermaid für Abläufe und Zustände. Als letzter fachlicher Abschnitt `## Fehlerbilder`: Fehler beim Einbinden, die in jedem Projekt gleich auftreten, als Tabelle `Symptom` / `Ursache` / `Abhilfe` |
 | 7 | `## API` | ja | Ein `c`-Codeblock mit allen öffentlichen Funktionen, je Zeile ein kurzer Kommentar. Bei vielen Funktionen mit `###` gruppieren, Details unter `### Funktionsdetails` |
-| 8 | `## Verwendung` | ja | Nummerierte Schritte `### 1. Dateien einbinden`, `### 2. … initialisieren`, `### 3. …` mit je einem kurzen Codebeispiel |
-| 9 | `## Hinweise` | optional | Fallstricke, Voraussetzungen und Projekte, in denen die Bibliothek eingesetzt wird (mit Link) |
+| 8 | `## Verwendung` | ja | Nummerierte Schritte `### 1. Dateien einbinden`, `### 2. … initialisieren`, `### 3. …` mit je einem kurzen Codebeispiel. Hat die Bibliothek ein RUNBOOK, zum Schluss ein Link darauf |
+| 9 | `## Hinweise` | optional | Fallstricke und Voraussetzungen. Keine Liste der Projekte, die die Bibliothek einsetzen (Abschnitt 1) |
 | 10 | `## Unterstützte …` | optional | Cortex-M-Kerne bzw. STM32-Familien, wenn die Bibliothek nicht überall läuft |
 | 11 | `## Quellen` | optional | Datenblätter, Vorbilder, Protokollspezifikationen als Links |
 | 12 | `## Abhängigkeiten` | ja | Aufzählung `` `header.h` – Zweck ``. Eigene Bibliotheken werden auf ihr Repository verlinkt |
@@ -305,7 +324,8 @@ sequenceDiagram
 
 Das RUNBOOK beschreibt Handgriffe am echten Gerät, die jemand ohne Kenntnis des Codes ausführen kann. Die README zeigt, wie man den Code baut oder einbindet. Das RUNBOOK zeigt, wie man ein fertiges Gerät bedient, aktualisiert oder rettet.
 
-- **Ablage:** in der Anwendung oder im Werkzeug, mit dem das Gerät bedient wird, denn erst dort gibt es Port, Taste und Firmware-Datei. Eine Bibliothek wie `STM32_BootloaderXModem` beschreibt Protokoll und allgemeinen Ablauf in ihrer README, das RUNBOOK von `EAuto_Bootloader` verlinkt darauf.
+- **Ablage:** in der Anwendung oder im Werkzeug, mit dem das Gerät bedient wird, denn erst dort gibt es Port, Taste und Firmware-Datei. Legt eine Bibliothek selbst fest, was ein Mensch am Gerät tut (Taste, Terminal, Übertragung), wie `STM32_BootloaderXModem`, stehen die Prozeduren einmal in ihrem RUNBOOK, damit jedes Projekt dieselben Fehlerbilder nutzt. Gerätespezifisches (Port, Baudrate, Reset, Firmware-Datei) steht dort als Platzhalter `‹…›` mit einer Tabelle `Platzhalter` / `Bedeutung`. Stellt eine Bibliothek nur eine API bereit, die die Anwendung aufruft, hat sie kein RUNBOOK. Was ihr Code zur Laufzeit tut, steht in der README oder der ARCHITECTURE.
+- **Aufteilung Bibliothek / Anwendung:** Das RUNBOOK der Anwendung (z. B. `EAuto_Bootloader`) verlinkt auf das der Bibliothek, und zwar auf den Tag aus `## Abhängigkeiten`, nicht auf `main`. So beschreibt es den Ablauf, der auf dem Gerät tatsächlich läuft. Die Platzhalter füllt es mit einer Tabelle `Platzhalter` / `Wert` mit denselben Namen aus, die Prozeduren schreibt es nicht noch einmal ab. Prozeduren, die es nur auf diesem Gerät gibt, stehen allein in der Anwendung. Das RUNBOOK der Bibliothek verlinkt nicht zurück auf die Anwendungen. Fehler beim Einbinden der Bibliothek (Linker-Skript, Adressen) gehören nicht ins RUNBOOK, sondern als `## Fehlerbilder` in die README der Bibliothek.
 - **Eine Prozedur je `##`-Abschnitt**, benannt nach der Aufgabe, z. B. „Firmware aktualisieren“ oder „Board mit defekter App wiederherstellen“.
 - **Jede Prozedur hat dieselben vier Teile:** Voraussetzungen → nummerierte Schritte → Prüfung, ob es geklappt hat → Fehlerbilder.
 - **Schritte sind Befehle**, kein Fließtext: was man tut und was man sieht. Einstellungen werden exakt genannt (Baudrate, Port, Menüpfad in TeraTerm).
@@ -342,6 +362,44 @@ Vorlage:
 
 ## Board mit defekter Application wiederherstellen
 ...
+```
+
+Vorlage für das RUNBOOK einer Bibliothek: Prozeduren wie oben, Gerätespezifisches als Platzhalter.
+
+```markdown
+# Runbook <Name>
+
+## Platzhalter
+
+| Platzhalter | Bedeutung |
+|-------------|-----------|
+| `‹Port›` | serielle Schnittstelle zum Board, z. B. UART über USB-UART-Adapter |
+| `‹Baudrate›` | Baudrate der Schnittstelle |
+| `‹Bootloader starten›` | Handgriff, mit dem das Board in den Bootloader geht |
+
+## Firmware aktualisieren
+
+### Voraussetzungen
+- Adapter an `‹Port›`, TeraTerm, Firmware als `.bin`
+- Schnittstelle: `‹Baudrate›`, 8N1, kein Handshake
+
+### Schritte
+1. Bootloader starten: `‹Bootloader starten›`.
+...
+```
+
+Das RUNBOOK der Anwendung füllt die Platzhalter aus und verlinkt auf den eingebundenen Tag:
+
+```markdown
+# Runbook <Name>
+
+Die Prozeduren stehen im [Runbook von STM32_BootloaderXModem](https://github.com/Diveturtle93/STM32_BootloaderXModem/blob/v1.0.0/RUNBOOK.md). Für dieses Board gilt:
+
+| Platzhalter | Wert |
+|-------------|------|
+| `‹Port›` | USART2, Stecker X5 |
+| `‹Baudrate›` | 115200 |
+| `‹Bootloader starten›` | Taste S1 halten und Board einschalten |
 ```
 
 ---
@@ -424,6 +482,7 @@ Ob ARCHITECTURE, RUNBOOK oder ADRs nötig sind, lässt sich nicht zuverlässig a
 | Tags | eine Version im CHANGELOG hat keinen Git-Tag `X.Y.Z` / `vX.Y.Z` oder umgekehrt; Tags eines Repositories mischen beide Formen | folgt |
 | ARCHITECTURE / RUNBOOK | Pflichtabschnitte aus Abschnitt 7 bzw. 8 fehlen | folgt |
 | ADRs | Dateiname nicht `NNNN-titel.md`, Lücke in der Nummerierung, Status nicht `Vorgeschlagen`, `Angenommen` oder `Ersetzt durch NNNN` | folgt |
+| Inhaltsverzeichnis | Dokument erfüllt das Kriterium aus Abschnitt 1, hat aber kein Inhaltsverzeichnis, oder ein `##`-Abschnitt fehlt darin bzw. ein Eintrag zeigt auf keinen Abschnitt | folgt |
 
 ---
 
@@ -436,6 +495,8 @@ Ob ARCHITECTURE, RUNBOOK oder ADRs nötig sind, lässt sich nicht zuverlässig a
 - [ ] Jede Version im CHANGELOG hat einen Tag `X.Y.Z` oder `vX.Y.Z`, alle Tags in derselben Form
 - [ ] Versions-Defines genau einmal im Repository, in `main` mit `_DEV` 0
 - [ ] Fachdokumente in `docs/`, in der README unter `## Dokumente` verlinkt
+- [ ] Bibliotheken verweisen nicht auf die Projekte, die sie einsetzen
 - [ ] Ordner mit mehreren Werkzeugen oder mehr als 3 Dokumenten hat eine README
+- [ ] Dokumente ab 200 Zeilen oder ab 6 nummerierten `##`-Abschnitten haben ein vollständiges Inhaltsverzeichnis
 - [ ] ARCHITECTURE, RUNBOOK und ADRs vorhanden, wo Abschnitt 3 sie verlangt, und in `[doc] require` eingetragen
 - [ ] Schnittstellen-Änderung: README und CHANGELOG im selben Commit angepasst

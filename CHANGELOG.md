@@ -6,6 +6,17 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+- Documentation Style: `## Fehlerbilder` als optionaler letzter fachlicher Abschnitt einer Bibliotheks-README.
+- Documentation Style: Vorlagen für das RUNBOOK einer Bibliothek mit Platzhaltern und für das RUNBOOK der Anwendung, das sie ausfüllt.
+- Documentation Style: Hat eine Bibliothek ein RUNBOOK, verlinkt ihre README es am Ende von `## Verwendung`.
+- Documentation Style: Dokumente ab 200 Zeilen oder ab 6 nummerierten `##`-Abschnitten bekommen ein Inhaltsverzeichnis der `##`-Abschnitte, außer dem CHANGELOG.
+- Inhaltsverzeichnisse in C Coding Style, Python Coding Style und Documentation Style.
+
+### Geändert
+- Documentation Style: Verweise zwischen Repositories gehen nur vom übergeordneten Projekt auf die eingebundenen Bibliotheken. `## Hinweise` einer Bibliotheks-README listet keine Projekte mehr, die sie einsetzen.
+- Documentation Style: Eine Bibliothek, die festlegt, was ein Mensch am Gerät tut (z. B. `STM32_BootloaderXModem`), hat ein RUNBOOK mit den allgemeinen Prozeduren und Platzhaltern für Gerätespezifisches. Das RUNBOOK der Anwendung verlinkt auf den eingebundenen Tag und füllt die Platzhalter mit einer Tabelle aus.
+
 ## [1.1.0] - 2026-10-17
 
 ### Hinzugefügt
