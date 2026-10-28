@@ -24,15 +24,15 @@ Im Hauptverzeichnis liegen nur README, CHANGELOG, LICENSE, ARCHITECTURE und RUNB
 
 ## 2. Repo-Klassen
 
-Jedes Repository gehört zu genau einer Klasse. Die Klasse bestimmt den Mittelteil der README (Abschnitt 4.2). Anfang (Titel, Beschreibung) und Ende (Abhängigkeiten, Lizenz) sind in allen Klassen gleich.
+Jedes Repository gehört zu genau einer Klasse. Sie wird immer in der `.stylecheck` unter `[doc] class` gesetzt (Abschnitt 11), aus dem Repo-Namen wird sie nicht abgeleitet. Die Klasse bestimmt den Mittelteil der README (Abschnitt 4.2). Anfang (Titel, Beschreibung) und Ende (Abhängigkeiten, Lizenz) sind in allen Klassen gleich.
 
-| Klasse | Repositories | Kennzeichen |
-|---|---|---|
-| Bibliothek | alle `STM32_*`, `IMD_IR155_3204` | wird in andere Projekte eingebunden, meist als Submodul |
-| Firmware-Anwendung | `EAuto_BMS`, `EAuto_Motor`, `EAuto_Bootloader`, `STM32F7_Blinky`, `STM32F7_MicroBoot` | läuft auf einer Platine, bindet Bibliotheken ein |
-| PC-Werkzeug | `EAuto_Dashboard` | wird auf dem PC installiert und bedient |
-| Referenz | `CAN_Matrix`, `Coding_Styleguide` | Festlegungen, die für mehrere Projekte gelten |
-| ausgenommen | `APP`, `Diveturtle93` (GitHub-Profil) | keine Pflichtdokumente, wird nicht geprüft |
+| Klasse | `[doc] class` | Repositories | Kennzeichen |
+|---|---|---|---|
+| Bibliothek | `bibliothek` | alle `STM32_*`, `IMD_IR155_3204`, `STM32F7_MicroBoot` | wird in andere Projekte eingebunden, meist als Submodul |
+| Firmware-Anwendung | `firmware` | `EAuto_BMS`, `EAuto_Motor`, `EAuto_Bootloader`, `EAuto_MicroBootloader`, `STM32F7_Blinky`, `STM32G0_Blinky`, `APP` | läuft auf einer Platine, bindet Bibliotheken ein |
+| PC-Werkzeug | `werkzeug` | `EAuto_Dashboard` | wird auf dem PC installiert und bedient |
+| Referenz | `referenz` | `CAN_Matrix`, `Coding_Styleguide` | Festlegungen, die für mehrere Projekte gelten |
+| ausgenommen | `ausgenommen` | `Diveturtle93` (GitHub-Profil) | keine Pflichtdokumente, wird nicht geprüft |
 
 ---
 
@@ -398,13 +398,11 @@ Eine Ordner-README ist Pflicht, wenn ein Ordner mehrere ausführbare Werkzeuge o
 
 `tools/doc_check.py` prüft diese Regeln wie die Stylechecks den Code: gleicher Aufruf, dieselben Optionen (`-q`, `-s`, `-r`, `-f`, `-c`), Reports unter `reports/doc/`. Aufruf und Optionen stehen in der [Tool-Beschreibung](../tools/README.md).
 
-Die Klasse ergibt sich aus dem Repo-Namen (`STM32_*` und `IMD_*` = Bibliothek, `EAuto_*` und `STM32F7_*` = Firmware-Anwendung). Ausnahmen stehen in der `.stylecheck`:
+Jedes Repository hat eine `.stylecheck` im Hauptverzeichnis, in der die Klasse gesetzt ist. Erlaubt sind die Werte aus Abschnitt 2, eine Ableitung aus dem Repo-Namen gibt es nicht:
 
 ```ini
 [doc]
-class = werkzeug                # EAuto_Dashboard
-# class = referenz              # CAN_Matrix, Coding_Styleguide
-# class = ausgenommen           # APP, Diveturtle93
+class = werkzeug                # bibliothek, firmware, werkzeug, referenz oder ausgenommen
 require = runbook               # zusätzlich verlangte Dokumente: architecture, runbook, adr
 ```
 
@@ -412,7 +410,7 @@ Ob ARCHITECTURE, RUNBOOK oder ADRs nötig sind, lässt sich nicht zuverlässig a
 
 | Geprüft | Befund, wenn … | Stand |
 |---|---|---|
-| Klasse | Klasse weder aus dem Namen ableitbar noch in `[doc] class` gesetzt, oder unbekannt | geprüft |
+| Klasse | `.stylecheck` fehlt, `[doc] class` nicht gesetzt oder unbekannt | geprüft |
 | Pflichtdateien | `README.md` oder `CHANGELOG.md` fehlt oder ist anders geschrieben | geprüft |
 | Verlangte Dokumente | Ein Dokument aus `[doc] require` fehlt (`architecture` → `ARCHITECTURE.md`, `runbook` → `RUNBOOK.md`, `adr` → mindestens ein `docs/adr/NNNN-titel.md`) | geprüft |
 | Lizenz | `LICENSE` vorhanden, aber kein `## Lizenz`, oder `## Lizenz` ohne `LICENSE` | geprüft |
@@ -429,7 +427,7 @@ Ob ARCHITECTURE, RUNBOOK oder ADRs nötig sind, lässt sich nicht zuverlässig a
 
 ## 12. Checkliste
 
-- [ ] Repo-Klasse bekannt (aus dem Namen oder `[doc] class` in `.stylecheck`)
+- [ ] `.stylecheck` mit `[doc] class` vorhanden
 - [ ] `README.md` mit den Pflichtabschnitten der Klasse in der richtigen Reihenfolge
 - [ ] `## Lizenz` genau dann, wenn eine `LICENSE` vorliegt
 - [ ] `CHANGELOG.md` mit `## [Unveröffentlicht]` oben, Versionen absteigend, Link-Referenzen am Ende

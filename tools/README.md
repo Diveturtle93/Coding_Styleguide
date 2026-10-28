@@ -138,8 +138,8 @@ types = uart_status             # Typ aus STM32_Basicuart (kein Submodul)
 exclude = openblt               # nur fuer Python zusaetzlich ausschliessen
 
 [doc]
-class = werkzeug                # Repo-Klasse, wenn sie sich nicht aus dem Namen ergibt
+class = werkzeug                # Repo-Klasse, Pflicht fuer doc_check.py
 require = runbook               # RUNBOOK.md muss vorhanden sein
 ```
 
-Die Datei wird nur angelegt, wenn die automatischen Ausschluesse nicht reichen. Die frueheren Dateien `.c_stylecheck` und `.py_stylecheck` werden nicht mehr gelesen; liegen sie noch im Projekt, gibt das Skript eine Warnung aus.
+Fuer `doc_check.py` ist die Datei mit `[doc] class` in jedem Projekt Pflicht. Die uebrigen Eintraege kommen nur dazu, wenn die automatischen Ausschluesse nicht reichen. Die frueheren Dateien `.c_stylecheck` und `.py_stylecheck` werden nicht mehr gelesen; liegen sie noch im Projekt, gibt das Skript eine Warnung aus.
