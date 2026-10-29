@@ -93,14 +93,14 @@ Reihenfolge der Abschnitte (Pflicht, fett = immer vorhanden):
 5. **Einfuegen der STM Include-Dateien** – `"main.h"`, `"can.h"`, …
 6. **Einfuegen der eigenen Include-Dateien**
 7. Definiere Debug-Symbole – `DEBUG_<NAME>` innerhalb von `#ifdef DEBUG` (gleicher Name fuer ein oder mehrere Symbole). **Pflicht, wenn eine gleichnamige `.c`-Datei existiert** (`canbus.h` + `canbus.c` → `DEBUG_CANBUS`); ein auskommentiertes Symbol zaehlt als vorhanden
-8. Version definieren – `<NAME>_MAJOR`, `_MINOR`, `_PATCH`, `_DEV`. Steht **genau einmal im Repository**, in einem Header (siehe unten). Einziger `#define`-Abschnitt vor den Typedefs
-9. Typedefs (Abschnittsname beschreibend, z. B. `Typedefines definieren`, `Definiere Statemaschine Typedefines`)
-10. Konstanten definieren – weitere `#define`-Abschnitte mit eigener Ueberschrift stehen hier
+8. Version definieren – `<NAME>_MAJOR`, `_MINOR`, `_PATCH`, `_DEV`. Steht **genau einmal im Repository**, in einem Header (siehe unten)
+9. Konstanten definieren – alle weiteren `#define`, auch die, die Typedefs benutzen (z. B. Arraygroessen). Weitere `#define`-Abschnitte mit eigener Ueberschrift stehen hier
+10. Typedefs (Abschnittsname beschreibend, z. B. `Typedefines definieren`, `Definiere Statemaschine Typedefines`)
 11. Definiere globale Variablen (`extern`)
 12. Funktionen definieren – Prototypen
 13. **Abschluss** – `#endif /* INC_<NAME>_H_ */` + Trennlinie
 
-Die Abschnitte 7 bis 12 sind optional. Die Reihenfolge wird geprueft; fehlende Abschnitte sind erlaubt, die vorhandenen muessen aber in dieser Reihenfolge stehen. Typedef-Abschnitte werden an `Typedef` im Namen erkannt. Stehen Prototypen im Header, gehoeren sie in `Funktionen definieren`.
+Die Abschnitte 7 bis 12 sind optional. Die Reihenfolge wird geprueft; fehlende Abschnitte sind erlaubt, die vorhandenen muessen aber in dieser Reihenfolge stehen. Typedef-Abschnitte werden an `Typedef` im Namen erkannt. Die Defines stehen vor den Typedefs, weil ein Typedef nur Defines nutzen kann, die vorher definiert sind. Umgekehrt duerfen Makros Typen nutzen, die erst danach definiert werden (z. B. `sizeof(Beispiel_TypeDef)`), da der Praeprozessor ein Makro erst dort einsetzt, wo es verwendet wird. Stehen Prototypen im Header, gehoeren sie in `Funktionen definieren`.
 
 `<NAME>` ist der Dateiname in Grossbuchstaben ohne Endung (`canbus.h` → `INC_CANBUS_H_`, `CANBUS_MAJOR`, `DEBUG_CANBUS`).
 
@@ -162,6 +162,12 @@ Innerhalb von `#ifdef` / `#endif` wird mit einem Tab eingerueckt. Nicht benoetig
 #define BEISPIEL_DEV							1
 //----------------------------------------------------------------------
 
+// Konstanten definieren
+//----------------------------------------------------------------------
+#define TIMEOUT									1000						// Timeout in ms
+#define DATEN_LAENGE							8							// Anzahl Datenbytes
+//----------------------------------------------------------------------
+
 // Definiere Beispiel Typedefines
 //----------------------------------------------------------------------
 typedef enum
@@ -174,6 +180,7 @@ typedef struct
 {
 	uint32_t id;															// Identifier
 	uint8_t len;															// Datenlaenge
+	uint8_t daten[DATEN_LAENGE];											// Datenbytes
 } Beispiel_TypeDef;
 //----------------------------------------------------------------------
 typedef union
@@ -187,11 +194,6 @@ typedef union
 
 	uint8_t status;								// 1 Byte
 } beispielStatus;
-//----------------------------------------------------------------------
-
-// Konstanten definieren
-//----------------------------------------------------------------------
-#define TIMEOUT									1000						// Timeout in ms
 //----------------------------------------------------------------------
 
 // Definiere globale Variablen
@@ -545,7 +547,7 @@ Das Skript [tools/c_stylecheck.py](../tools/c_stylecheck.py) prueft C-Dateien ge
 - [ ] Alle Pflichtabschnitte vorhanden und in der richtigen Reihenfolge
 - [ ] Leere Include-Abschnitte trotzdem angelegt
 - [ ] `.c`: keine Typedefs, Variablen nur in `Variablen definieren` / `Variablen einbinden`, moeglichst mit Kommentar
-- [ ] `.h`: Typedefs nach `Version definieren`, vor allen anderen Defines
+- [ ] `.h`: Alle Defines vor den Typedefs (`Version definieren`, dann `Konstanten definieren`)
 - [ ] Typen aller Variablen und Parameter im Projekt definiert
 - [ ] `.h`: `#pragma once` **und** Include-Guard `INC_<NAME>_H_`
 - [ ] Versions-Defines genau einmal im Repository, in einem Header

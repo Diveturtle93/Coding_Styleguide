@@ -559,11 +559,11 @@ def orderAnchors (L, isHeader, guard, firstFunc):
 	if isHeader:
 		first(lambda l: l == DEBUG_SECTION or DEBUG_NAME.match(l), 6, sectionName(DEBUG_SECTION))
 		first(lambda l: l == VERSION_SECTION, 7, sectionName(VERSION_SECTION))
+		first(lambda l: l == CONST_SECTION, 8, sectionName(CONST_SECTION))
 
 		# Typedef-Abschnitte haben beschreibende Namen, es zaehlen alle
 		for i in typedefSections(L):
-			anchors.append((i, 8, sectionName(L[i])))
-		first(lambda l: l == CONST_SECTION, 9, sectionName(CONST_SECTION))
+			anchors.append((i, 9, sectionName(L[i])))
 		first(lambda l: l == GLOBAL_SECTION, 10, sectionName(GLOBAL_SECTION))
 		first(lambda l: l == FUNC_SECTION, 11, sectionName(FUNC_SECTION))
 		first(lambda l: l == f"#endif /* {guard} */", 12, "Abschluss")
