@@ -54,7 +54,7 @@ Rueckgabewert: `0` = keine Befunde, `1` = Befunde, `2` = keine Dateien gefunden.
 
 ## Dokumentation pruefen
 
-`doc_check.py` prueft die Regeln aus [Documentation Style, Abschnitt 11](../docs/DOCUMENTATION_STYLE.md#11-automatische-prüfung). Bisher ist das die Vollstaendigkeit, die Gliederung von README, CHANGELOG, ARCHITECTURE und RUNBOOK folgt.
+`doc_check.py` prueft die Regeln aus [Documentation Style, Abschnitt 13](../docs/DOCUMENTATION_STYLE.md#13-automatische-prüfung). Bisher ist das die Vollstaendigkeit, die Gliederung von README, CHANGELOG, ARCHITECTURE und RUNBOOK folgt.
 
 ```sh
 py tools/doc_check.py                             # alle Ordner neben diesem Repo
@@ -121,7 +121,7 @@ Projektspezifische Einstellungen stehen optional in der Datei `.stylecheck` im P
 | `[stylecheck]` | alle Skripte |
 | `[c]` | nur `c_stylecheck.py`, ergaenzt `[stylecheck]`. Zusaetzlich `types` (bekannte Typen, die nicht im Projekt definiert sind), siehe [Typen von Variablen](#typen-von-variablen-c) |
 | `[py]` | nur `py_stylecheck.py`, ergaenzt `[stylecheck]` |
-| `[doc]` | nur `doc_check.py`, ergaenzt `[stylecheck]`. Eintraege `exclude`, `class` (Repo-Klasse) und `require` (zusaetzlich verlangte Dokumente), siehe [Documentation Style, Abschnitt 11](../docs/DOCUMENTATION_STYLE.md#11-automatische-prüfung) |
+| `[doc]` | nur `doc_check.py`, ergaenzt `[stylecheck]`. Eintraege `exclude`, `class` (Repo-Klasse) und `require` (zusaetzlich verlangte Dokumente), siehe [Documentation Style, Abschnitt 13](../docs/DOCUMENTATION_STYLE.md#13-automatische-prüfung) |
 
 Ordner oder einzelne Dateien werden relativ zum Projektordner angegeben, mehrere mit Komma getrennt:
 

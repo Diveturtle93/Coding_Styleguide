@@ -2,6 +2,15 @@
 
 Verbindlicher Layout- und Formatierungsstandard fuer alle C-Dateien (`.c` / `.h`) in den Projekten von **Diveturtle93**.
 
+1. [Allgemeine Regeln](#1-allgemeine-regeln)
+2. [Dateikopf](#2-dateikopf)
+3. [Header-Datei (`.h`)](#3-header-datei-h)
+4. [Quelldatei (`.c`)](#4-quelldatei-c)
+5. [Formatierung im Code](#5-formatierung-im-code)
+6. [Namenskonventionen](#6-namenskonventionen)
+7. [Automatische Pruefung](#7-automatische-pruefung)
+8. [Checkliste](#8-checkliste)
+
 ---
 
 ## 1. Allgemeine Regeln
