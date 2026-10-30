@@ -18,6 +18,7 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 ### Geändert
 - Documentation Style: Verweise zwischen Repositories gehen nur vom übergeordneten Projekt auf die eingebundenen Bibliotheken. `## Hinweise` einer Bibliotheks-README listet keine Projekte mehr, die sie einsetzen.
 - Documentation Style: Eine Bibliothek, die festlegt, was ein Mensch am Gerät tut (z. B. `STM32_BootloaderXModem`), hat ein RUNBOOK mit den allgemeinen Prozeduren und Platzhaltern für Gerätespezifisches. Das RUNBOOK der Anwendung verlinkt auf den eingebundenen Tag und füllt die Platzhalter mit einer Tabelle aus.
+- C-Stylecheck meldet Variablen und Parameter, deren Typ im Projekt nicht definiert ist (z. B. Tippfehler im Typnamen), und nennt den aehnlichsten bekannten Typ. Bekannt sind Standard-Typen, Typedefs und `struct`/`enum`/`union`-Tags im Projekt (inkl. HAL, CMSIS, Middleware und Submodule) sowie Eintraege in `[c] types` der `.stylecheck`.
 
 ## [1.1.0] - 2026-10-17
 

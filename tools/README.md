@@ -41,6 +41,17 @@ Rueckgabewert: `0` = keine Befunde, `1` = Befunde, `2` = keine Dateien gefunden.
 
 ---
 
+## Typen von Variablen (C)
+
+`c_stylecheck.py` meldet unter `Typ nicht definiert` Variablen und Parameter, deren Typ es im Projekt nicht gibt, z. B. `RingbufferTypeDef rxRing;`, obwohl der Typedef `RingbufferCANBusTypeDef` heisst. Der Befund nennt den aehnlichsten bekannten Typ (`RingbufferTypeDef (aehnlich: RingbufferCANBusTypeDef)`). Regel: [C Coding Style, Typen von Variablen](../docs/C_CODING_STYLE.md#typen-von-variablen).
+
+- Typedefs und `struct`/`enum`/`union`-Tags werden je Projekt aus allen `.c`/`.h`-Dateien gesammelt, auch aus den automatisch ausgeschlossenen (HAL, CMSIS, Middleware, Submodule). Typen von HAL und FreeRTOS sind damit bekannt, ohne dass diese Dateien geprueft werden.
+- Liegen die HAL-Header nicht im Projekt (Bibliotheken ohne `Drivers/`), gelten bekannte Namen von HAL/LL (`<Peripherie>_...TypeDef`, z. B. `CAN_HandleTypeDef`), CMSIS, CMSIS-RTOS (`os...`), FatFs und FreeRTOS als bekannt.
+- Typen aus anderen Repos, die nicht als Submodul im Projekt liegen, stehen in `[c] types` der `.stylecheck`.
+- Wird eine einzelne Datei angegeben, zaehlen die Typen aus deren Ordner.
+
+---
+
 ## Dokumentation pruefen
 
 `doc_check.py` prueft die Regeln aus [Documentation Style, Abschnitt 13](../docs/DOCUMENTATION_STYLE.md#13-automatische-prüfung). Bisher ist das die Vollstaendigkeit, die Gliederung von README, CHANGELOG, ARCHITECTURE und RUNBOOK folgt.
@@ -108,7 +119,7 @@ Projektspezifische Einstellungen stehen optional in der Datei `.stylecheck` im P
 | Abschnitt | Gilt fuer |
 |---|---|
 | `[stylecheck]` | alle Skripte |
-| `[c]` | nur `c_stylecheck.py`, ergaenzt `[stylecheck]` |
+| `[c]` | nur `c_stylecheck.py`, ergaenzt `[stylecheck]`. Zusaetzlich `types` (bekannte Typen, die nicht im Projekt definiert sind), siehe [Typen von Variablen](#typen-von-variablen-c) |
 | `[py]` | nur `py_stylecheck.py`, ergaenzt `[stylecheck]` |
 | `[doc]` | nur `doc_check.py`, ergaenzt `[stylecheck]`. Eintraege `exclude`, `class` (Repo-Klasse) und `require` (zusaetzlich verlangte Dokumente), siehe [Documentation Style, Abschnitt 13](../docs/DOCUMENTATION_STYLE.md#13-automatische-prüfung) |
 
@@ -121,6 +132,7 @@ exclude = Test                  # fuer C und Python ausschliessen
 [c]
 exclude = Application/Inc/git.h # nur fuer C zusaetzlich ausschliessen
 include = Core, Application     # nur diese Ordner pruefen
+types = uart_status             # Typ aus STM32_Basicuart (kein Submodul)
 
 [py]
 exclude = openblt               # nur fuer Python zusaetzlich ausschliessen

@@ -50,13 +50,20 @@
 #   exclude = Lib, Test           -> diese Ordner zusaetzlich ausschliessen
 #   [c]                           -> gilt nur fuer C, ergaenzt [stylecheck]
 #   include = Core, Application   -> nur diese Ordner pruefen
+#   types = uart_status           -> zusaetzlich bekannte Typen (nicht im Projekt definiert)
 # Ordner oder Dateien werden relativ zum Projektordner angegeben, mehrere mit Komma getrennt.
+#
+# Typen von Variablen und Parametern: Gemeldet wird ein Typ, den es im Projekt nicht gibt (z. B. Tippfehler),
+# mit dem aehnlichsten bekannten Typ. Bekannt sind Standard-Typen, Typedefs und struct/enum/union-Tags aus
+# allen .c/.h-Dateien des Projekts, auch aus den ausgeschlossenen (HAL, CMSIS, Middleware, Submodule).
+# Ohne HAL-Header im Projekt gelten bekannte Namen von HAL/LL, CMSIS, FatFs und FreeRTOS.
 #
 # Rueckgabewert: 0 = keine Befunde, 1 = Befunde vorhanden, 2 = keine Dateien gefunden
 #-----------------------------------------------------------------------
 
 # Einfuegen der standard Module
 #-----------------------------------------------------------------------
+import difflib
 import glob
 import os
 import re
@@ -83,6 +90,7 @@ from stylecheck_common import (
 	checkSectionForm,
 	checkVarSections,
 	debugSections,
+	projectList,
 	readLines,
 	run,
 	sectionEnd,
@@ -152,6 +160,30 @@ FALLTHROUGH										= re.compile(r"^\s*// fall through - \S.*$")
 FALLTHROUGH_LIKE								= re.compile(r"^\s*(//\s*fall(s)?[ -]?thr(ough|u)\b.*|__attribute__\s*\(\(\s*fallthrough\s*\)\)\s*;.*|\[\[fallthrough\]\]\s*;.*)$", re.I)
 TERMINATOR										= re.compile(r"^\s*(break|continue|return\b.*|goto\s+\w+)\s*;$")
 LABEL											= re.compile(r"^\s*(case\b.*|default\s*):\s*$")
+
+# Typen von Variablen und Parametern: Standard-Typen, im Projekt definierte Typen (inkl. HAL/CMSIS/Middleware unter Drivers/ usw.)
+TYPE_CAT										= "Typ nicht definiert"
+BUILTIN_WORDS									= {"void", "char", "short", "int", "long", "float", "double", "signed", "unsigned", "_Bool", "bool"}
+STD_TYPES										= {"size_t", "ssize_t", "ptrdiff_t", "wchar_t", "wint_t", "max_align_t", "char16_t", "char32_t", "intptr_t", "uintptr_t",
+													"intmax_t", "uintmax_t", "va_list", "FILE", "fpos_t", "time_t", "clock_t", "div_t", "ldiv_t", "lldiv_t", "sig_atomic_t",
+													"jmp_buf", "mbstate_t", "struct tm"}
+STD_TYPE										= re.compile(r"^u?int(_least|_fast)?(8|16|32|64)_t$")
+QUALIFIERS										= {"static", "extern", "const", "volatile", "register", "auto", "inline", "restrict", "_Atomic", "_Thread_local",
+													"__IO", "__I", "__O", "__IM", "__OM", "__IOM", "__weak", "__WEAK", "__packed", "__PACKED", "__inline", "__INLINE",
+													"__STATIC_INLINE", "__STATIC_FORCEINLINE", "__ALIGN_BEGIN", "__ALIGN_END", "__USED", "__UNUSED", "__NO_RETURN"}
+DECL_KEYWORDS									= KEYWORDS | {"goto", "case", "default", "break", "continue", "do", "typedef", "asm", "__asm"}
+TYPE_FUNC_HEAD									= re.compile(r"^(?!typedef\b)[A-Za-z_][\w\s\*]*?\b([A-Za-z_]\w*)\s*\((.*)\)\s*;?\s*$")
+
+# Typen von HAL, CMSIS, FatFs und FreeRTOS, falls deren Header nicht im Projekt liegen (Bibliotheken ohne Drivers/)
+HAL_MARKER										= "HAL_StatusTypeDef"		# im Projekt gefunden -> HAL-Header vorhanden
+EXT_TYPES										= {"IRQn_Type", "FlagStatus", "ITStatus", "FunctionalState", "ErrorStatus",
+													"FATFS", "FIL", "DIR", "FILINFO", "FRESULT", "BYTE", "WORD", "DWORD", "QWORD", "UINT", "TCHAR", "FSIZE_t", "LBA_t",
+													"TaskHandle_t", "QueueHandle_t", "SemaphoreHandle_t", "TimerHandle_t", "EventGroupHandle_t", "StreamBufferHandle_t",
+													"MessageBufferHandle_t", "TickType_t", "BaseType_t", "UBaseType_t", "StackType_t", "TaskFunction_t"}
+EXT_TYPE										= re.compile(r"^(HAL|LL|GPIO|UART|USART|CAN|FDCAN|SPI|I2C|I2S|TIM|ADC|DAC|DMA|DMA2D|RTC|IWDG|WWDG|CRC|RNG|ETH|FLASH|PWR|RCC|"
+													r"EXTI|SAI|SD|MMC|SDMMC|QSPI|OSPI|LTDC|DSI|DCMI|FMC|FSMC|SDRAM|SRAM|NOR|NAND|LPTIM|USB|PCD|HCD|USBD|USBH|CEC|SPDIFRX|"
+													r"JPEG|MDIOS|SMBUS|IRDA|SMARTCARD|HASH|CRYP|DFSDM|NVIC|SCB|SysTick|CoreDebug|DBGMCU|SYSCFG|MPU|ITM|DWT|TPI|FPU)_\w*TypeDef$"
+													r"|^os[A-Z]\w*$")
 #-----------------------------------------------------------------------
 
 # Variablen definieren
@@ -388,6 +420,124 @@ def checkCVariables (L, add):
 			add(i + 1, "Variable ausserhalb der Variablen-Abschnitte", short(l))
 #-----------------------------------------------------------------------
 
+# Alle in einem C-Text definierten Typen: Typedefs (struct/enum/union, einfache Typen, Funktionszeiger)
+# und Tags mit Definition oder Vorwaertsdeklaration ("struct Name", "enum Name", "union Name")
+#-----------------------------------------------------------------------
+def typeNames (text):
+	text = re.sub(r"/\*.*?\*/", " ", text, flags=re.S)
+	text = re.sub(r"//[^\n]*", "", text)
+	text = re.sub(r'"(\\.|[^"\\\n])*"', '""', text)
+	names = {f"{m.group(1)} {m.group(2)}" for m in re.finditer(r"\b(struct|enum|union)\s+([A-Za-z_]\w*)\s*[{;]", text)}
+	for m in re.finditer(r"\btypedef\b", text):
+		# Bis zum ; ausserhalb von Klammern
+		depth = 0
+		j = m.end()
+		while j < len(text) and not (text[j] == ";" and depth == 0):
+			depth += (text[j] in "{(") - (text[j] in "})")
+			j += 1
+		body = text[m.end():j]
+
+		fp = re.search(r"\(\s*\*\s*([A-Za-z_]\w*)\s*\)", body)
+		if "}" not in body and fp:
+			names.add(fp.group(1))
+			continue
+		decl = body[body.rindex("}") + 1:] if "}" in body else body
+		decl = re.sub(r"__attribute__\s*\(\(.*?\)\)|\[[^\]]*\]", " ", decl)
+		for part in decl.split(","):
+			ids = re.findall(r"[A-Za-z_]\w*", part)
+			if ids:
+				names.add(ids[-1])
+	return names
+#-----------------------------------------------------------------------
+
+# Typen aller .c/.h-Dateien unterhalb eines Ordners, inkl. ausgeschlossener (HAL, CMSIS, Submodule)
+#-----------------------------------------------------------------------
+def projectTypes (base):
+	names = set()
+	for p in glob.glob(os.path.join(base, "**", "*.[ch]"), recursive=True):
+		with open(p, "rb") as f:
+			names |= typeNames(f.read().decode("utf-8", errors="replace"))
+	return names
+#-----------------------------------------------------------------------
+
+# Typ einer Deklaration "Typ Name" (ohne Initialisierung), None = keine Deklaration
+# Rueckgabe: "uint8_t", "unsigned int", "struct Name", ...
+#-----------------------------------------------------------------------
+def declType (head):
+	head = re.sub(r"__attribute__\s*\(\(.*\)\)|\[[^\]]*\]", " ", head)
+	head = re.sub(r":\s*\w+\s*$", "", head)									# Bitfeld
+	if not re.fullmatch(r"[\w\s\*]+", head):
+		return None
+	words = [w for w in re.findall(r"\b[A-Za-z_]\w*", head) if w not in QUALIFIERS]
+	if len(words) < 2 or any(w in DECL_KEYWORDS for w in words):
+		return None
+	words = words[:-1]
+	if words[0] in ("struct", "enum", "union"):
+		return " ".join(words) if len(words) == 2 else None
+	if all(w in BUILTIN_WORDS for w in words):
+		return " ".join(words)
+	return words[0] if len(words) == 1 else None
+#-----------------------------------------------------------------------
+
+# Typ bekannt: Standard-Typ, im Projekt definiert oder (ohne HAL-Header im Projekt) Typ von HAL/CMSIS/FatFs/FreeRTOS
+#-----------------------------------------------------------------------
+def typeAllowed (t, known):
+	if all(w in BUILTIN_WORDS for w in t.split()) or t in STD_TYPES or STD_TYPE.match(t) or t in known:
+		return True
+	return HAL_MARKER not in known and (t in EXT_TYPES or bool(EXT_TYPE.match(t)))
+#-----------------------------------------------------------------------
+
+# Typ von Variablen (Dateiebene, lokal, struct-Member, for-Schleife) und Parametern ist im Projekt definiert
+# known: Typen im Projekt und Eintraege aus [c] types, Befund mit dem aehnlichsten bekannten Typ
+#-----------------------------------------------------------------------
+def checkTypes (L, known, add):
+	# Befund, wenn die Deklaration einen unbekannten Typ hat
+	def check (head, i):
+		t = declType(head)
+		if t is None or typeAllowed(t, known):
+			return
+		similar = difflib.get_close_matches(t, known, n=1, cutoff=0.7)
+		hint = f" (aehnlich: {similar[0]})" if similar else ""
+		add(i + 1, TYPE_CAT, f"{t}{hint}: {short(L[i])}")
+
+	depth = 0
+	inBlock = False
+	stmtStart = True														# naechste Codezeile beginnt eine Anweisung
+	for i, l in enumerate(L):
+		# /* */-Kommentare (CubeMX) ueberspringen
+		if inBlock:
+			if "*/" not in l:
+				continue
+			inBlock = False
+			l = l[l.index("*/") + 2:]
+		code = re.sub(r"/\*.*?\*/", " ", stripCode(l))
+		if "/*" in code:
+			inBlock = True
+			code = code[:code.index("/*")]
+		s = code.strip()
+		if not s or s.startswith("#") or (i > 0 and L[i - 1].rstrip().endswith("\\")):
+			continue
+
+		atTop = depth == 0
+		depth += s.count("{") - s.count("}")
+		start = stmtStart
+		stmtStart = s[-1] in ";{}:"
+
+		# Parameter von Funktionsdefinitionen und Prototypen, unbenannte Parameter und Funktionszeiger nicht
+		fm = TYPE_FUNC_HEAD.match(code) if atTop and start else None
+		if fm and fm.group(1) not in KEYWORDS:
+			if "(" not in fm.group(2):
+				for p in fm.group(2).split(","):
+					check(p, i)
+			continue
+
+		fl = re.search(r"\bfor\s*\(([^;]*);", s)
+		if fl:
+			check(re.split(r"[=,]", fl.group(1), maxsplit=1)[0], i)
+		elif start and (s.endswith(";") or "=" in s):
+			check(re.split(r"[=,;]", s, maxsplit=1)[0], i)
+#-----------------------------------------------------------------------
+
 # Positionen der bekannten Abschnitte fuer die Reihenfolgepruefung
 #-----------------------------------------------------------------------
 def orderAnchors (L, isHeader, guard, firstFunc):
@@ -467,8 +617,9 @@ def cBasenames (base):
 # cNames: Basisnamen der .c-Dateien im Projekt (zusaetzlich: Ordner der Datei und ../Src)
 # genHeaders: Basisnamen der von CubeMX erzeugten .h-Dateien im Projekt
 # userCode: nur Zeilen zwischen USER CODE BEGIN/END pruefen (CubeMX-Dateien)
+# types: bekannte Typen (im Projekt definiert und [c] types), None = Typen nicht pruefen
 #-----------------------------------------------------------------------
-def checkFile (path, cNames=None, genHeaders=None, userCode=False):
+def checkFile (path, cNames=None, genHeaders=None, userCode=False, types=None):
 	raw = open(path, "rb").read()
 	issues = []
 
@@ -485,6 +636,8 @@ def checkFile (path, cNames=None, genHeaders=None, userCode=False):
 	checkRequiredSections(L, INC_SECTIONS, "// Einfuegen", SEP, add, subsection)
 	checkIncludes(L, genHeaders or set(), add)
 	checkBlankLines(L, SEP, add)
+	if types is not None:
+		checkTypes(L, types, add)
 
 	# Debug-Symbole (ein Name, egal ob ein oder mehrere Symbole)
 	debugPos = debugSections(L, DEBUG_SECTION, DEBUG_NAME, add)
@@ -696,17 +849,19 @@ def generatedHeaders (base):
 	return {os.path.basename(p).lower() for p in files if isGenerated(p)}
 #-----------------------------------------------------------------------
 
-# Projekt pruefen, die Basisnamen der .c-Dateien und erzeugten .h-Dateien werden einmal je Projekt bestimmt
+# Projekt pruefen, die Basisnamen der .c-Dateien, erzeugten .h-Dateien und Typen werden einmal je Projekt bestimmt
 #-----------------------------------------------------------------------
 def checkProject (base, files):
 	cNames = cBasenames(base)
 	genHeaders = generatedHeaders(base)
-	return [(p, checkFile(p, cNames, genHeaders, uc)) for p, uc in files]
+	types = projectTypes(base) | set(projectList(base, "c", "types"))
+	return [(p, checkFile(p, cNames, genHeaders, uc, types)) for p, uc in files]
 #-----------------------------------------------------------------------
 
 # Hauptprogramm
 #-----------------------------------------------------------------------
 if __name__ == "__main__":
 	sys.exit(run(Language("C", "c", "docs/C_CODING_STYLE.md", (".c", ".h"), VERSION_SECTION, DEFAULT_EXCLUDE,
-		"HAL/CMSIS-Dateien und Submodule mitpruefen, CubeMX-Dateien vollstaendig pruefen", checkProject, isGenerated)))
+		"HAL/CMSIS-Dateien und Submodule mitpruefen, CubeMX-Dateien vollstaendig pruefen", checkProject, isGenerated,
+		configKeys=("exclude", "include", "types"))))
 #-----------------------------------------------------------------------
