@@ -26,7 +26,7 @@
 #
 # Projekt-Einstellungen (optional): Datei .stylecheck im Projektordner
 #   [doc]
-#   class = werkzeug              -> Repo-Klasse, wenn sie sich nicht aus dem Namen ergibt
+#   class = werkzeug              -> Repo-Klasse, Pflicht in jedem Projekt
 #   require = architecture, runbook   -> zusaetzlich verlangte Dokumente (architecture, runbook, adr)
 #   exclude = Manual              -> diese Ordner/Dateien nicht pruefen, ergaenzt [stylecheck]
 #
@@ -77,14 +77,6 @@ CLASSES											= {
 	"referenz": "Referenz",
 	"ausgenommen": "ausgenommen",
 }
-
-# Klasse aus dem Repo-Namen, der erste passende Anfang gilt
-CLASS_BY_NAME									= [
-	("STM32F7_", "firmware"),
-	("STM32_", "bibliothek"),
-	("IMD_", "bibliothek"),
-	("EAuto_", "firmware"),
-]
 
 REQUIRED_FILES									= ("README.md", "CHANGELOG.md")	# Pflicht in jeder Klasse ausser ausgenommen
 LICENSE_FILE									= "LICENSE"
@@ -152,14 +144,11 @@ def docSettings (base):
 	return cls, require
 #-----------------------------------------------------------------------
 
-# Repo-Klasse aus [doc] class oder dem Repo-Namen, None = nicht ableitbar
+# Repo-Klasse aus [doc] class, None = nicht gesetzt
 #-----------------------------------------------------------------------
 def repoClass (base):
 	cls, _ = docSettings(base)
-	if cls:
-		return cls
-	name = os.path.basename(base)
-	return next((c for prefix, c in CLASS_BY_NAME if name.startswith(prefix)), None)
+	return cls
 #-----------------------------------------------------------------------
 
 # Zeilen ausserhalb von Codebloecken: [(Zeilenindex, Zeile)]
@@ -306,7 +295,7 @@ def checkWhole (base, files, results):
 	if cls == "ausgenommen":
 		return []
 	if cls is None:
-		add(0, "Klasse", f"nicht aus dem Repo-Namen ableitbar, '[doc] class' in {CONFIG_FILE} setzen")
+		add(0, "Klasse", f"'[doc] class' in {CONFIG_FILE} nicht gesetzt, erlaubt: {', '.join(CLASSES)}")
 	elif cls not in CLASSES:
 		add(0, "Klasse", f"unbekannte Klasse '{cls}' in {CONFIG_FILE}, erlaubt: {', '.join(CLASSES)}")
 
