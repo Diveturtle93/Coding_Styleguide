@@ -13,6 +13,8 @@ Die Regeln legen fest, wie C- und Python-Dateien aufgebaut und formatiert sind u
 | [docs/C_CODING_STYLE.md](docs/C_CODING_STYLE.md) | Regeln für C-Dateien (`.c` / `.h`), geprüft von [tools/c_stylecheck.py](tools/c_stylecheck.py) |
 | [docs/PYTHON_CODING_STYLE.md](docs/PYTHON_CODING_STYLE.md) | Regeln für Python-Dateien (`.py`), geprüft von [tools/py_stylecheck.py](tools/py_stylecheck.py) |
 | [docs/DOCUMENTATION_STYLE.md](docs/DOCUMENTATION_STYLE.md) | Regeln für die Dokumentation (`.md`) und die Versionierung, geprüft von [tools/doc_check.py](tools/doc_check.py) |
+| [docs/templates/SECURITY.md](docs/templates/SECURITY.md) | Optionale Vorlage für die Sicherheitsrichtlinie, wird als `.github/SECURITY.md` in ein Projekt kopiert |
+| [docs/templates/CONTRIBUTING.md](docs/templates/CONTRIBUTING.md) | Optionale Vorlage für die Mitarbeit (Branches, CHANGELOG, Versionierung, Prüfung), wird als `.github/CONTRIBUTING.md` in ein Projekt kopiert |
 | [tools/](tools/README.md) | Prüfskripte: Aufruf, Optionen, Reports und Projekteinstellungen (`.stylecheck`) |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Aufbau und Ablauf der Prüfskripte |
 | [CHANGELOG.md](CHANGELOG.md) | Änderungen je Version |

@@ -4,6 +4,15 @@ Verbindlicher Layout- und Formatierungsstandard fuer alle Python-Dateien (`.py`)
 
 Die bewussten Abweichungen von PEP 8 stehen in [Abschnitt 6](#6-abweichungen-von-pep-8).
 
+1. [Allgemeine Regeln](#1-allgemeine-regeln)
+2. [Dateikopf](#2-dateikopf)
+3. [Moduldatei (`.py`)](#3-moduldatei-py)
+4. [Formatierung im Code](#4-formatierung-im-code)
+5. [Namenskonventionen](#5-namenskonventionen)
+6. [Abweichungen von PEP 8](#6-abweichungen-von-pep-8)
+7. [Automatische Pruefung](#7-automatische-pruefung)
+8. [Checkliste](#8-checkliste)
+
 ---
 
 ## 1. Allgemeine Regeln
