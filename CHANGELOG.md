@@ -20,6 +20,9 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 - Documentation Style: Eine Bibliothek, die festlegt, was ein Mensch am Gerät tut (z. B. `STM32_BootloaderXModem`), hat ein RUNBOOK mit den allgemeinen Prozeduren und Platzhaltern für Gerätespezifisches. Das RUNBOOK der Anwendung verlinkt auf den eingebundenen Tag und füllt die Platzhalter mit einer Tabelle aus.
 - C-Stylecheck meldet Variablen und Parameter, deren Typ im Projekt nicht definiert ist (z. B. Tippfehler im Typnamen), und nennt den aehnlichsten bekannten Typ. Bekannt sind Standard-Typen, Typedefs und `struct`/`enum`/`union`-Tags im Projekt (inkl. HAL, CMSIS, Middleware und Submodule) sowie Eintraege in `[c] types` der `.stylecheck`.
 
+### Geändert
+- C-Header: `Konstanten definieren` steht jetzt vor den Typedef-Abschnitten, damit Typedefs die Defines nutzen können (z. B. Arraygrößen). Bestehende Header mit Konstanten nach den Typedefs werden unter `Reihenfolge` gemeldet.
+
 ## [1.1.0] - 2026-10-17
 
 ### Hinzugefügt
